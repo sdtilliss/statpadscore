@@ -1,0 +1,24 @@
+export interface Score {
+  id: string;
+  playerName: string;
+  sport: string;
+  category: string;
+  totalScore: number;
+  totalGuesses: number;
+  percentile: number;
+  date: string; // YYYY-MM-DD
+  screenshotUrl: string;
+  submittedAt: string;
+}
+
+export interface PlayerStats {
+  playerName: string;
+  gamesPlayed: number;
+  daysPlayed: number;
+  avgPercentile: number;
+  bestScore: number;
+  bestScoreSport: string;
+  bestPercentile: number;
+  currentStreak: number;
+  sportBreakdown: Record<string, { count: number; avg: number; best: number }>;
+}
