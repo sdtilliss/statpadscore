@@ -68,6 +68,18 @@ export default function LeagueSubmitPage() {
     return () => document.removeEventListener('paste', onPaste);
   }, []);
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Enter' && file && playerName.trim() && status === 'idle') {
+        // Don't trigger if user is typing in an input
+        if (document.activeElement?.tagName === 'INPUT') return;
+        handleSubmit(e as unknown as React.FormEvent);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [file, playerName, status]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file || !playerName.trim()) return;
