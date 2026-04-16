@@ -1,65 +1,135 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
+
+  useEffect(() => {
+    const lastLeague = localStorage.getItem('statpad_last_league');
+    if (lastLeague) router.replace(`/${lastLeague}`);
+  }, [router]);
+
+  async function createLeague(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setCreating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/league', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      router.push(`/${data.id}`);
+    } catch {
+      setError('Something went wrong. Try again.');
+      setCreating(false);
+    }
+  }
+
+  function joinLeague(e: React.FormEvent) {
+    e.preventDefault();
+    const id = code.trim().toLowerCase();
+    if (id) router.push(`/${id}`);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main style={{
+      minHeight: '100vh', background: '#0d0d0d', color: '#fff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '24px 16px',
+    }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 900, margin: '0 0 4px', letterSpacing: -0.5 }}>
+          statpadscore
+        </h1>
+        <p style={{ fontSize: 14, color: '#555', margin: '0 0 40px' }}>
+          Daily Statpad leaderboard for you and your friends
+        </p>
+
+        {/* Create */}
+        <form onSubmit={createLeague} style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+            Create a new league
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="League name (e.g. The Boys)"
+              required
+              style={{
+                flex: 1, background: '#141414', border: '1px solid #2a2a2a',
+                borderRadius: 10, padding: '12px 14px', fontSize: 14,
+                color: '#fff', outline: 'none',
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <button
+              type="submit"
+              disabled={!name.trim() || creating}
+              style={{
+                background: name.trim() ? '#1db954' : '#1a1a1a',
+                color: name.trim() ? '#fff' : '#444',
+                border: 'none', borderRadius: 10, padding: '12px 18px',
+                fontWeight: 700, fontSize: 14, cursor: name.trim() ? 'pointer' : 'default',
+                whiteSpace: 'nowrap', transition: 'background 0.15s',
+              }}
+            >
+              {creating ? '...' : 'Create'}
+            </button>
+          </div>
+          {error && <div style={{ fontSize: 12, color: '#e07060', marginTop: 8 }}>{error}</div>}
+        </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+          <div style={{ flex: 1, height: 1, background: '#1e1e1e' }} />
+          <span style={{ fontSize: 12, color: '#444' }}>or</span>
+          <div style={{ flex: 1, height: 1, background: '#1e1e1e' }} />
         </div>
-      </main>
-    </div>
+
+        {/* Join */}
+        <form onSubmit={joinLeague}>
+          <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+            Join an existing league
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Paste league code"
+              style={{
+                flex: 1, background: '#141414', border: '1px solid #2a2a2a',
+                borderRadius: 10, padding: '12px 14px', fontSize: 14,
+                color: '#fff', outline: 'none',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!code.trim()}
+              style={{
+                background: code.trim() ? '#fff' : '#1a1a1a',
+                color: code.trim() ? '#000' : '#444',
+                border: 'none', borderRadius: 10, padding: '12px 18px',
+                fontWeight: 700, fontSize: 14, cursor: code.trim() ? 'pointer' : 'default',
+                transition: 'background 0.15s',
+              }}
+            >
+              Join
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
   );
 }

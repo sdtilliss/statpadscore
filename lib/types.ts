@@ -1,5 +1,12 @@
+export interface League {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface Score {
   id: string;
+  leagueId: string;
   playerName: string;
   sport: string;
   category: string;
@@ -20,5 +27,5 @@ export interface PlayerStats {
   bestScoreSport: string;
   bestPercentile: number;
   currentStreak: number;
-  sportBreakdown: Record<string, { count: number; avg: number; best: number }>;
+  sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number }>;
 }
