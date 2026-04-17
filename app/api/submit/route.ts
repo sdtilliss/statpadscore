@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 {
   "sport": the sport shown in the top-right dropdown (e.g. "MLB", "NFL", "NBA", "NHL"),
   "category": the stat category shown top-left (e.g. "WAR", "FPTS", "3PM", "HR"),
-  "totalScore": the large number labeled "TOTAL SCORE" (as a number),
+  "totalScore": the score value labeled "TOTAL SCORE" or "AVERAGE SCORE" — preserve it exactly as shown, including decimals (e.g. 0.900 not 900, 21.6 not 216),
   "totalGuesses": the number labeled "TOTAL GUESSES" (as a number),
   "percentile": the number X from "YOUR GRID BEAT X% OF OTHER SCORES" (as a number, e.g. 41.3)
 }
