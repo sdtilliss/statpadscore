@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { put } from '@vercel/blob';
 import { saveScore } from '@/lib/kv';
+import { getStatpadDate } from '@/lib/date';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -65,7 +66,7 @@ Return only the JSON, no markdown or explanation.`,
       return NextResponse.json({ error: 'Could not read scores from screenshot. Please try again.' }, { status: 422 });
     }
 
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const today = getStatpadDate();
     const score = {
       id: crypto.randomUUID(),
       leagueId,
