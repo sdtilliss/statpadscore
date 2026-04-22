@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import type { Score, PlayerStats, League } from '@/lib/types';
+import type { Score, PlayerStats, League, Message } from '@/lib/types';
 import { computePlayerStats } from '@/lib/stats';
 
 const SPORT_COLORS: Record<string, string> = {
@@ -166,9 +166,127 @@ function StatsTab({ stats }: { stats: PlayerStats[] }) {
   );
 }
 
+function ChatTab({ leagueId }: { leagueId: string }) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('statpad_name');
+    if (saved) setName(saved);
+  }, []);
+
+  const loadMessages = useCallback(async () => {
+    const res = await fetch(`/api/messages?leagueId=${leagueId}`);
+    if (res.ok) setMessages(await res.json());
+  }, [leagueId]);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  // Scroll to bottom when messages arrive
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !text.trim() || sending) return;
+    setSending(true);
+    setError('');
+    localStorage.setItem('statpad_name', name.trim());
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leagueId, playerName: name.trim(), text: text.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      setText('');
+      await loadMessages();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function formatTime(iso: string) {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {/* Message list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 120, marginBottom: 20 }}>
+        {messages.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#444', padding: '40px 0', fontSize: 14 }}>
+            No messages today. Say something! 👋
+          </div>
+        ) : (
+          messages.map((m) => (
+            <div key={m.id} style={{
+              background: '#141414', border: '1px solid #1e1e1e',
+              borderRadius: 10, padding: '10px 14px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{m.playerName}</span>
+                <span style={{ fontSize: 11, color: '#444' }}>{formatTime(m.sentAt)}</span>
+              </div>
+              <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.45, wordBreak: 'break-word' }}>{m.text}</div>
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Compose */}
+      <form onSubmit={send} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input
+          type="text" value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="Your name" required
+          style={{
+            background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10,
+            padding: '11px 14px', fontSize: 14, color: '#fff', outline: 'none',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <textarea
+            value={text} onChange={(e) => setText(e.target.value)}
+            placeholder="Say something…" required maxLength={500}
+            rows={2}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e as unknown as React.FormEvent); }
+            }}
+            style={{
+              flex: 1, background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10,
+              padding: '11px 14px', fontSize: 14, color: '#fff', outline: 'none',
+              resize: 'none', fontFamily: 'inherit',
+            }}
+          />
+          <button type="submit" disabled={!name.trim() || !text.trim() || sending} style={{
+            background: name.trim() && text.trim() ? '#1db954' : '#1a1a1a',
+            color: name.trim() && text.trim() ? '#fff' : '#444',
+            border: 'none', borderRadius: 10, padding: '0 18px',
+            fontSize: 20, cursor: name.trim() && text.trim() ? 'pointer' : 'default',
+            transition: 'background 0.15s, color 0.15s', alignSelf: 'stretch',
+          }}>↑</button>
+        </div>
+        {error && (
+          <div style={{ fontSize: 12, color: '#e07060' }}>{error}</div>
+        )}
+        <div style={{ fontSize: 11, color: '#333', textAlign: 'right' }}>{text.length}/500 · resets at 4am PST</div>
+      </form>
+    </div>
+  );
+}
+
 export default function LeaguePage() {
   const { leagueId } = useParams<{ leagueId: string }>();
-  const [tab, setTab] = useState<'today' | 'stats'>('today');
+  const [tab, setTab] = useState<'today' | 'stats' | 'chat'>('today');
   const [league, setLeague] = useState<League | null>(null);
   const [todayScores, setTodayScores] = useState<Score[]>([]);
   const [allTimeStats, setAllTimeStats] = useState<PlayerStats[]>([]);
@@ -250,7 +368,7 @@ export default function LeaguePage() {
         </div>
 
         <div style={{ display: 'flex', marginTop: 24, borderBottom: '1px solid #1a1a1a' }}>
-          {(['today', 'stats'] as const).map((t) => (
+          {(['today', 'stats', 'chat'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: tab === t ? '#fff' : '#444',
@@ -258,7 +376,7 @@ export default function LeaguePage() {
               fontSize: 13, padding: '10px 18px',
               borderBottom: tab === t ? '2px solid #fff' : '2px solid transparent',
             }}>
-              {t === 'today' ? "Today's Scores" : 'All-Time Stats'}
+              {t === 'today' ? "Today's Scores" : t === 'stats' ? 'All-Time Stats' : '💬 Chat'}
             </button>
           ))}
         </div>
@@ -269,8 +387,10 @@ export default function LeaguePage() {
           <div style={{ textAlign: 'center', color: '#333', padding: '56px 0', fontSize: 14 }}>Loading...</div>
         ) : tab === 'today' ? (
           <TodayTab scores={todayScores} leagueId={leagueId} />
-        ) : (
+        ) : tab === 'stats' ? (
           <StatsTab stats={allTimeStats} />
+        ) : (
+          <ChatTab leagueId={leagueId} />
         )}
       </div>
     </main>

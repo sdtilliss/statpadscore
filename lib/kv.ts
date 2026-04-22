@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { Score, League } from './types';
+import type { Score, League, Message } from './types';
 
 const kv = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -64,4 +64,17 @@ export async function getRecentScores(leagueId: string, days = 90): Promise<Scor
   const recent = dates.slice(0, days);
   const sets = await Promise.all(recent.map((d) => getScoresByDate(leagueId, d)));
   return sets.flat();
+}
+
+// --- Messages ---
+
+export async function saveMessage(message: Message): Promise<void> {
+  const key = `messages:${message.leagueId}:${message.date}`;
+  const existing = (await kv.get<Message[]>(key)) || [];
+  existing.push(message);
+  await kv.set(key, existing);
+}
+
+export async function getMessages(leagueId: string, date: string): Promise<Message[]> {
+  return (await kv.get<Message[]>(`messages:${leagueId}:${date}`)) || [];
 }
