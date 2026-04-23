@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
   "category": the stat category shown top-left (e.g. "WAR", "FPTS", "3PM", "HR"),
   "totalScore": the main score value — look for a label like "TOTAL SCORE", "AVERAGE SCORE", or similar, and if no clear label use the large prominent number in the center of the screen. Preserve exactly as shown including decimals (e.g. 0.900 not 900, 21.6 not 216),
   "totalGuesses": the number labeled "TOTAL GUESSES" (as a number),
-  "percentile": the number X from "YOUR GRID BEAT X% OF OTHER SCORES" (as a number, e.g. 41.3)
+  "percentile": the number X from "YOUR GRID BEAT X% OF OTHER SCORES" (as a number, e.g. 41.3),
+  "purpleTiles": the count of individual athlete rows that show 100th percentile — these tiles have a distinct purple/violet background compared to gold or gray tiles. Count only rows showing exactly "100th PERCENTILE". Return 0 if none.
 }
 Return only the JSON, no markdown or explanation.`,
             },
@@ -51,7 +52,7 @@ Return only the JSON, no markdown or explanation.`,
     });
 
     const text = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
-    let parsed: { sport: string; category: string; totalScore: number; totalGuesses: number; percentile: number };
+    let parsed: { sport: string; category: string; totalScore: number; totalGuesses: number; percentile: number; purpleTiles: number };
     try {
       // Strip markdown code fences if Claude wrapped the response
       let jsonText = text;
@@ -76,6 +77,7 @@ Return only the JSON, no markdown or explanation.`,
       totalScore: Number(parsed.totalScore),
       totalGuesses: Number(parsed.totalGuesses),
       percentile: Number(parsed.percentile),
+      purpleTiles: Number(parsed.purpleTiles) || 0,
       date: today,
       screenshotUrl: blob.url,
       submittedAt: new Date().toISOString(),

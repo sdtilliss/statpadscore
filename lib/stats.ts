@@ -43,7 +43,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
         if (s.totalScore > sportBreakdown[s.sport].best) {
           sportBreakdown[s.sport].best = s.totalScore;
         }
-        if (s.percentile === 100) sportBreakdown[s.sport].purpleHits++;
+        sportBreakdown[s.sport].purpleHits += s.purpleTiles || 0;
       }
       for (const sport of Object.keys(sportBreakdown)) {
         const c = sportBreakdown[sport].count;
@@ -60,7 +60,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
         bestScoreSport: best.sport,
         bestPercentile: Math.max(...playerScores.map((s) => s.percentile)),
         currentStreak: streak,
-        purpleHits: playerScores.filter((s) => s.percentile === 100).length,
+        purpleHits: playerScores.reduce((a, s) => a + (s.purpleTiles || 0), 0),
         sportBreakdown,
       };
     })

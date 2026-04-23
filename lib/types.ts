@@ -16,6 +16,7 @@ export interface Score {
   date: string; // YYYY-MM-DD
   screenshotUrl: string;
   submittedAt: string;
+  purpleTiles?: number; // count of individual athlete tiles at 100th percentile
 }
 
 export interface Message {
