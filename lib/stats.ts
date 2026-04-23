@@ -34,15 +34,16 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
 
       const best = playerScores.reduce((a, b) => (b.totalScore > a.totalScore ? b : a));
 
-      const sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number }> = {};
+      const sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; purpleHits: number }> = {};
       for (const s of playerScores) {
-        if (!sportBreakdown[s.sport]) sportBreakdown[s.sport] = { count: 0, avg: 0, best: 0, avgPercentile: 0 };
+        if (!sportBreakdown[s.sport]) sportBreakdown[s.sport] = { count: 0, avg: 0, best: 0, avgPercentile: 0, purpleHits: 0 };
         sportBreakdown[s.sport].count++;
         sportBreakdown[s.sport].avg += s.totalScore;
         sportBreakdown[s.sport].avgPercentile += s.percentile;
         if (s.totalScore > sportBreakdown[s.sport].best) {
           sportBreakdown[s.sport].best = s.totalScore;
         }
+        if (s.percentile === 100) sportBreakdown[s.sport].purpleHits++;
       }
       for (const sport of Object.keys(sportBreakdown)) {
         const c = sportBreakdown[sport].count;
@@ -59,6 +60,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
         bestScoreSport: best.sport,
         bestPercentile: Math.max(...playerScores.map((s) => s.percentile)),
         currentStreak: streak,
+        purpleHits: playerScores.filter((s) => s.percentile === 100).length,
         sportBreakdown,
       };
     })
