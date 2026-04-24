@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getScoresByDate, getRecentScores } from '@/lib/kv';
+import { getScoresByDate, getRecentScores, getAllDates } from '@/lib/kv';
 import { getStatpadDate } from '@/lib/date';
 
 export async function GET(req: NextRequest) {
@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
   if (mode === 'alltime') {
     const scores = await getRecentScores(leagueId, 90);
     return NextResponse.json(scores);
+  }
+
+  if (mode === 'dates') {
+    const dates = await getAllDates(leagueId);
+    return NextResponse.json(dates);
   }
 
   const date = searchParams.get('date') || getStatpadDate();
