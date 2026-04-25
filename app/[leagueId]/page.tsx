@@ -294,27 +294,33 @@ export default function LeaguePage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [navDates, setNavDates] = useState<string[]>([]);
   const [viewDate, setViewDate] = useState<string>('');
+
+  // Same 4am PST boundary as the server
+  function clientToday(): string {
+    const shifted = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    return shifted.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [leagueRes, datesRes, allRes] = await Promise.all([
+      const todayStr = clientToday();
+      const [leagueRes, datesRes, scoresRes, allRes] = await Promise.all([
         fetch(`/api/league?id=${leagueId}`),
         fetch(`/api/scores?leagueId=${leagueId}&mode=dates`),
+        fetch(`/api/scores?leagueId=${leagueId}`), // no date = server uses getStatpadDate()
         fetch(`/api/scores?leagueId=${leagueId}&mode=alltime`),
       ]);
       if (leagueRes.status === 404) { setNotFound(true); setLoading(false); return; }
       setLeague(await leagueRes.json());
-      const dates: string[] = await datesRes.json();
-      setAvailableDates(dates);
-      const latestDate = dates[0] || '';
-      setViewDate(latestDate);
-      if (latestDate) {
-        const scoresRes = await fetch(`/api/scores?leagueId=${leagueId}&date=${latestDate}`);
-        setTodayScores(await scoresRes.json());
-      }
+      const pastDates: string[] = await datesRes.json();
+      // Always start at today; prepend it if not already in the list
+      const all = pastDates.includes(todayStr) ? pastDates : [todayStr, ...pastDates];
+      setNavDates(all);
+      setViewDate(todayStr);
+      setTodayScores(await scoresRes.json());
       setAllTimeStats(computePlayerStats(await allRes.json()));
     } finally {
       setLoading(false);
@@ -402,36 +408,36 @@ export default function LeaguePage() {
           <div style={{ textAlign: 'center', color: '#333', padding: '56px 0', fontSize: 14 }}>Loading...</div>
         ) : tab === 'today' ? (
           <>
-            {availableDates.length > 0 && (
+            {navDates.length > 1 && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <button
                   onClick={() => {
-                    const idx = availableDates.indexOf(viewDate);
-                    if (idx < availableDates.length - 1) {
-                      const d = availableDates[idx + 1];
+                    const idx = navDates.indexOf(viewDate);
+                    if (idx < navDates.length - 1) {
+                      const d = navDates[idx + 1];
                       setViewDate(d);
                       loadScoresForDate(d);
                     }
                   }}
-                  disabled={availableDates.indexOf(viewDate) >= availableDates.length - 1}
-                  style={{ background: 'none', border: 'none', color: availableDates.indexOf(viewDate) >= availableDates.length - 1 ? '#2a2a2a' : '#666', fontSize: 20, cursor: availableDates.indexOf(viewDate) >= availableDates.length - 1 ? 'default' : 'pointer', padding: '4px 8px' }}
+                  disabled={navDates.indexOf(viewDate) >= navDates.length - 1}
+                  style={{ background: 'none', border: 'none', color: navDates.indexOf(viewDate) >= navDates.length - 1 ? '#2a2a2a' : '#666', fontSize: 20, cursor: navDates.indexOf(viewDate) >= navDates.length - 1 ? 'default' : 'pointer', padding: '4px 8px' }}
                 >‹</button>
-                <span style={{ fontSize: 13, color: viewDate === availableDates[0] ? '#1db954' : '#888', fontWeight: 600 }}>
-                  {viewDate === availableDates[0]
+                <span style={{ fontSize: 13, color: viewDate === clientToday() ? '#1db954' : '#888', fontWeight: 600 }}>
+                  {viewDate === clientToday()
                     ? 'Today'
                     : new Date(viewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
                 <button
                   onClick={() => {
-                    const idx = availableDates.indexOf(viewDate);
+                    const idx = navDates.indexOf(viewDate);
                     if (idx > 0) {
-                      const d = availableDates[idx - 1];
+                      const d = navDates[idx - 1];
                       setViewDate(d);
                       loadScoresForDate(d);
                     }
                   }}
-                  disabled={availableDates.indexOf(viewDate) <= 0}
-                  style={{ background: 'none', border: 'none', color: availableDates.indexOf(viewDate) <= 0 ? '#2a2a2a' : '#666', fontSize: 20, cursor: availableDates.indexOf(viewDate) <= 0 ? 'default' : 'pointer', padding: '4px 8px' }}
+                  disabled={navDates.indexOf(viewDate) <= 0}
+                  style={{ background: 'none', border: 'none', color: navDates.indexOf(viewDate) <= 0 ? '#2a2a2a' : '#666', fontSize: 20, cursor: navDates.indexOf(viewDate) <= 0 ? 'default' : 'pointer', padding: '4px 8px' }}
                 >›</button>
               </div>
             )}
