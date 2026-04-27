@@ -40,7 +40,7 @@ function ScreenshotModal({ url, onClose }: { url: string; onClose: () => void })
   );
 }
 
-function ScoreRow({ score, rank }: { score: Score; rank: number }) {
+function ScoreRow({ score, rank, admin, onDelete }: { score: Score; rank: number; admin: boolean; onDelete: (s: Score) => void }) {
   const [open, setOpen] = useState(false);
   const medal = ['🥇', '🥈', '🥉'][rank - 1];
   return (
@@ -70,14 +70,25 @@ function ScoreRow({ score, rank }: { score: Score; rank: number }) {
           </div>
           <div style={{ fontSize: 11, color: '#666', marginTop: 1 }}>beat {score.percentile}%</div>
         </div>
-        <span style={{ color: '#444', fontSize: 12, marginLeft: 2 }}>▸</span>
+        {admin ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(score); }}
+            title="Delete score"
+            style={{
+              background: 'none', border: '1px solid #4a2020', color: '#a04040',
+              borderRadius: 6, padding: '2px 8px', fontSize: 12, cursor: 'pointer', marginLeft: 2,
+            }}
+          >✕</button>
+        ) : (
+          <span style={{ color: '#444', fontSize: 12, marginLeft: 2 }}>▸</span>
+        )}
       </div>
       {open && <ScreenshotModal url={score.screenshotUrl} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function TodayTab({ scores, leagueId }: { scores: Score[]; leagueId: string }) {
+function TodayTab({ scores, leagueId, admin, onDelete }: { scores: Score[]; leagueId: string; admin: boolean; onDelete: (s: Score) => void }) {
   if (scores.length === 0) {
     return (
       <div style={{ textAlign: 'center', color: '#444', padding: '56px 0', fontSize: 14 }}>
@@ -100,7 +111,7 @@ function TodayTab({ scores, leagueId }: { scores: Score[]; leagueId: string }) {
               <span style={{ fontSize: 12, color: '#555' }}>{sportScores[0].category}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {sportScores.map((s, i) => <ScoreRow key={s.id} score={s} rank={i + 1} />)}
+              {sportScores.map((s, i) => <ScoreRow key={s.id} score={s} rank={i + 1} admin={admin} onDelete={onDelete} />)}
             </div>
           </div>
         );
@@ -296,6 +307,31 @@ export default function LeaguePage() {
   const [copied, setCopied] = useState(false);
   const [navDates, setNavDates] = useState<string[]>([]);
   const [viewDate, setViewDate] = useState<string>('');
+  const [admin, setAdmin] = useState(false);
+  const [scoreToDelete, setScoreToDelete] = useState<Score | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Check admin status once on mount
+  useEffect(() => {
+    fetch('/api/admin/check').then((r) => r.json()).then((d) => setAdmin(!!d.admin)).catch(() => {});
+  }, []);
+
+  async function handleDeleteScore(score: Score) {
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/admin/score', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leagueId, date: score.date, scoreId: score.id }),
+      });
+      if (res.ok) {
+        setTodayScores((prev) => prev.filter((s) => s.id !== score.id));
+        setScoreToDelete(null);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   // Same 4am PST boundary as the server
   function clientToday(): string {
@@ -441,7 +477,7 @@ export default function LeaguePage() {
                 >›</button>
               </div>
             )}
-            <TodayTab scores={todayScores} leagueId={leagueId} />
+            <TodayTab scores={todayScores} leagueId={leagueId} admin={admin} onDelete={(s) => setScoreToDelete(s)} />
           </>
         ) : tab === 'stats' ? (
           <StatsTab stats={allTimeStats} />
@@ -449,6 +485,33 @@ export default function LeaguePage() {
           <ChatTab leagueId={leagueId} />
         )}
       </div>
+
+      {scoreToDelete && (
+        <div onClick={() => !deleting && setScoreToDelete(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: '#141414', border: '1px solid #2a2a2a', borderRadius: 14,
+            padding: 24, maxWidth: 360, width: '100%',
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Delete this score?</div>
+            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5, marginBottom: 18 }}>
+              <strong style={{ color: '#fff' }}>{scoreToDelete.playerName}</strong> &middot; {scoreToDelete.sport} &middot; {scoreToDelete.totalScore.toLocaleString()} ({scoreToDelete.percentile}%)
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setScoreToDelete(null)} disabled={deleting} style={{
+                flex: 1, background: '#1a1a1a', color: '#888', border: 'none',
+                borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>Cancel</button>
+              <button onClick={() => handleDeleteScore(scoreToDelete)} disabled={deleting} style={{
+                flex: 1, background: '#7a2828', color: '#fff', border: 'none',
+                borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}>{deleting ? 'Deleting…' : 'Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

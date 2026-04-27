@@ -66,6 +66,37 @@ export async function getRecentScores(leagueId: string, days = 90): Promise<Scor
   return sets.flat();
 }
 
+export async function deleteScore(leagueId: string, date: string, scoreId: string): Promise<boolean> {
+  const dateKey = `scores:${leagueId}:${date}`;
+  const existing = (await kv.get<Score[]>(dateKey)) || [];
+  const filtered = existing.filter((s) => s.id !== scoreId);
+  if (filtered.length === existing.length) return false;
+  if (filtered.length === 0) {
+    await kv.del(dateKey);
+    // Also remove date from the date index since this day is now empty
+    const datesKey = `dates:${leagueId}`;
+    const dates = (await kv.get<string[]>(datesKey)) || [];
+    const remaining = dates.filter((d) => d !== date);
+    if (remaining.length !== dates.length) await kv.set(datesKey, remaining);
+  } else {
+    await kv.set(dateKey, filtered);
+  }
+  return true;
+}
+
+export async function deleteLeague(leagueId: string): Promise<void> {
+  // Find every key associated with this league and nuke them
+  const patterns = [`league:${leagueId}`, `dates:${leagueId}`, `scores:${leagueId}:*`, `messages:${leagueId}:*`];
+  for (const pattern of patterns) {
+    const keys = await kv.keys(pattern);
+    if (keys.length > 0) await kv.del(...keys);
+  }
+  // Remove from the league_ids index
+  const ids = (await kv.get<string[]>('league_ids')) || [];
+  const remaining = ids.filter((id) => id !== leagueId);
+  if (remaining.length !== ids.length) await kv.set('league_ids', remaining);
+}
+
 // --- Messages ---
 
 export async function saveMessage(message: Message): Promise<void> {
