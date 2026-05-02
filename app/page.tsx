@@ -46,18 +46,18 @@ export default function Home() {
       minHeight: '100vh', background: '#0d0d0d', color: '#fff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', padding: '24px 16px',
+      padding: '48px 16px 24px',
     }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 900, margin: '0 0 4px', letterSpacing: -0.5 }}>
-          statpadscore
+      <div style={{ width: '100%', maxWidth: 440 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: -0.8 }}>
+          Statpad Score
         </h1>
-        <p style={{ fontSize: 14, color: '#555', margin: '0 0 40px' }}>
-          Daily Statpad leaderboard for you and your friends
+        <p style={{ fontSize: 15, color: '#888', margin: '0 0 36px', lineHeight: 1.5 }}>
+          Daily leaderboards for <a href="https://statpadgame.com" target="_blank" rel="noopener noreferrer" style={{ color: '#1db954', textDecoration: 'none' }}>Statpad</a> — play with your friends, no signup.
         </p>
 
         {/* Create */}
-        <form onSubmit={createLeague} style={{ marginBottom: 32 }}>
+        <form onSubmit={createLeague} style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Create a new league
           </div>
@@ -91,14 +91,14 @@ export default function Home() {
           {error && <div style={{ fontSize: 12, color: '#e07060', marginTop: 8 }}>{error}</div>}
         </form>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ flex: 1, height: 1, background: '#1e1e1e' }} />
           <span style={{ fontSize: 12, color: '#444' }}>or</span>
           <div style={{ flex: 1, height: 1, background: '#1e1e1e' }} />
         </div>
 
         {/* Join */}
-        <form onSubmit={joinLeague}>
+        <form onSubmit={joinLeague} style={{ marginBottom: 56 }}>
           <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Join an existing league
           </div>
@@ -129,6 +129,42 @@ export default function Home() {
             </button>
           </div>
         </form>
+
+        {/* How it works */}
+        <section style={{ marginBottom: 56 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 18px', letterSpacing: -0.2 }}>How it works</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {[
+              { n: '1', t: 'Create a league', d: 'Name it, share the link with your friends.' },
+              { n: '2', t: 'Play Statpad and screenshot your result', d: 'Any sport, any day. Just keep the screenshot.' },
+              { n: '3', t: 'Upload to your league', d: "Claude reads your score automatically. Leaderboard updates in seconds." },
+              { n: '4', t: 'Compete daily', d: 'Resets at 4am PST. Streaks, all-time stats, purple hits, and chat for trash talk.' },
+            ].map((s) => (
+              <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <div style={{
+                  flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+                  background: '#1a1a1a', border: '1px solid #2a2a2a',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 800, color: '#1db954',
+                }}>{s.n}</div>
+                <div style={{ flex: 1, paddingTop: 2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{s.t}</div>
+                  <div style={{ fontSize: 13, color: '#777', lineHeight: 1.45 }}>{s.d}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer style={{
+          borderTop: '1px solid #1a1a1a', paddingTop: 20,
+          fontSize: 11, color: '#444', lineHeight: 1.6, textAlign: 'center',
+        }}>
+          Not affiliated with Statpad. Just a fan project for friends to play together.
+          <br />
+          Follow <a href="https://x.com/StatpadScore" target="_blank" rel="noopener noreferrer" style={{ color: '#666', textDecoration: 'none' }}>@StatpadScore</a> for updates.
+        </footer>
       </div>
     </main>
   );

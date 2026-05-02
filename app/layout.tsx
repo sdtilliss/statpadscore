@@ -12,9 +12,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const TITLE = "Statpad Score";
+const DESCRIPTION = "Play Statpad with your friends — daily leaderboards for the sports trivia game. Free, no signup.";
+const SITE_URL = "https://statpadscore.vercel.app";
+
 export const metadata: Metadata = {
-  title: "statpadscore",
-  description: "Daily Statpad leaderboard for friends",
+  title: TITLE,
+  description: DESCRIPTION,
+  metadataBase: new URL(SITE_URL),
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: TITLE,
+    images: [{ url: "/og-image.png", width: 1500, height: 500, alt: TITLE }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og-image.png"],
+    creator: "@StatpadScore",
+  },
 };
 
 export default function RootLayout({
