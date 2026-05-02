@@ -162,9 +162,9 @@ function StatsTab({ stats }: { stats: PlayerStats[] }) {
                 <div style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>{p.playerName}</div>
                 <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
                   {p.sd.count} game{p.sd.count !== 1 ? 's' : ''}
-                  <span style={{ marginLeft: 8 }}>best {p.sd.bestPercentile}%</span>
-                  {p.sd.purpleHits > 0 && <span style={{ color: '#a855f7', marginLeft: 8 }}>💜 {p.sd.purpleHits}</span>}
                   {p.currentStreak > 1 && <span style={{ color: '#f5a623', marginLeft: 8 }}>🔥 {p.currentStreak}d</span>}
+                  {p.sd.purpleHits > 0 && <span style={{ color: '#a855f7', marginLeft: 8 }}>💜 {p.sd.purpleHits}</span>}
+                  <span style={{ marginLeft: 8 }}>best {p.sd.bestPercentile}%</span>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
