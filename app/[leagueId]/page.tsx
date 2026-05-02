@@ -168,7 +168,7 @@ function StatsTab({ stats }: { stats: PlayerStats[] }) {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 800, fontSize: 18, color: sportColor(sport) }}>{p.sd.avgPercentile}%</div>
-                <div style={{ fontSize: 10, color: '#555' }}>avg percentile</div>
+                <div style={{ fontSize: 10, color: '#555' }}>avg · best {p.sd.bestPercentile}%</div>
               </div>
             </div>
           );

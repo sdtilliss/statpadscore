@@ -38,5 +38,5 @@ export interface PlayerStats {
   bestPercentile: number;
   currentStreak: number;
   purpleHits: number;
-  sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; purpleHits: number }>;
+  sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; bestPercentile: number; purpleHits: number }>;
 }
