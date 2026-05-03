@@ -136,7 +136,7 @@ export default function Home() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
               { n: '1', t: 'Create a league', d: 'Name it, share the link with your friends.' },
-              { n: '2', t: 'Play Statpad and screenshot your result', d: 'Any or all sports, just keep the screenshots.' },
+              { n: '2', t: 'Play Statpad and screenshot your results', d: 'Any or all sports, just keep the screenshots.' },
               { n: '3', t: 'Upload your screenshots', d: 'Make sure to include your percentile.' },
               { n: '4', t: 'Compete daily', d: 'Leaderboard, streaks, all-time stats, purple hits, and chat.' },
             ].map((s) => (
