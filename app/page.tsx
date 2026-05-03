@@ -46,13 +46,13 @@ export default function Home() {
       minHeight: '100vh', background: '#0d0d0d', color: '#fff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '48px 16px 24px',
+      padding: '28px 16px 24px',
     }}>
       <div style={{ width: '100%', maxWidth: 440 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: -0.8 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 900, margin: '0 0 6px', letterSpacing: -0.8 }}>
           Statpad Score
         </h1>
-        <p style={{ fontSize: 15, color: '#888', margin: '0 0 36px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: 14, color: '#888', margin: '0 0 22px', lineHeight: 1.5 }}>
           Daily leaderboards for <a href="https://statpadgame.com" target="_blank" rel="noopener noreferrer" style={{ color: '#1db954', textDecoration: 'none' }}>Statpad</a> — play with your friends, no signup, totally free.
         </p>
 
@@ -98,7 +98,7 @@ export default function Home() {
         </div>
 
         {/* Join */}
-        <form onSubmit={joinLeague} style={{ marginBottom: 56 }}>
+        <form onSubmit={joinLeague} style={{ marginBottom: 36 }}>
           <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Join an existing league
           </div>
@@ -131,9 +131,9 @@ export default function Home() {
         </form>
 
         {/* How it works */}
-        <section style={{ marginBottom: 56 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 18px', letterSpacing: -0.2 }}>How it works</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <section style={{ marginBottom: 36 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 14px', letterSpacing: -0.2 }}>How it works</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
               { n: '1', t: 'Create a league', d: 'Name it, share the link with your friends.' },
               { n: '2', t: 'Play Statpad and screenshot your results', d: 'Any or all sports, just keep the screenshots.' },
