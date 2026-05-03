@@ -231,27 +231,54 @@ function ChatTab({ leagueId }: { leagueId: string }) {
     return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
+  function formatDateHeader(dateStr: string): string {
+    // Compare against the same Statpad-day boundary used elsewhere (4am PST)
+    const todayShifted = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    const yesterdayShifted = new Date(Date.now() - (4 + 24) * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    if (dateStr === todayShifted) return 'Today';
+    if (dateStr === yesterdayShifted) return 'Yesterday';
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  // Sort by sentAt ascending so oldest is at top, newest at bottom
+  const sortedMessages = [...messages].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       {/* Message list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 120, marginBottom: 20 }}>
-        {messages.length === 0 ? (
+        {sortedMessages.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#444', padding: '40px 0', fontSize: 14 }}>
-            No messages today. Say something! 👋
+            No messages yet. Say something! 👋
           </div>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} style={{
-              background: '#141414', border: '1px solid #1e1e1e',
-              borderRadius: 10, padding: '10px 14px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{m.playerName}</span>
-                <span style={{ fontSize: 11, color: '#444' }}>{formatTime(m.sentAt)}</span>
+          sortedMessages.map((m, i) => {
+            const prev = sortedMessages[i - 1];
+            const showDateHeader = !prev || prev.date !== m.date;
+            return (
+              <div key={m.id}>
+                {showDateHeader && (
+                  <div style={{
+                    textAlign: 'center', fontSize: 10, color: '#444', letterSpacing: 1,
+                    textTransform: 'uppercase', fontWeight: 700,
+                    margin: i === 0 ? '0 0 10px' : '14px 0 10px',
+                  }}>
+                    {formatDateHeader(m.date)}
+                  </div>
+                )}
+                <div style={{
+                  background: '#141414', border: '1px solid #1e1e1e',
+                  borderRadius: 10, padding: '10px 14px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{m.playerName}</span>
+                    <span style={{ fontSize: 11, color: '#444' }}>{formatTime(m.sentAt)}</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.45, wordBreak: 'break-word' }}>{m.text}</div>
+                </div>
               </div>
-              <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.45, wordBreak: 'break-word' }}>{m.text}</div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={bottomRef} />
       </div>
@@ -291,7 +318,7 @@ function ChatTab({ leagueId }: { leagueId: string }) {
         {error && (
           <div style={{ fontSize: 12, color: '#e07060' }}>{error}</div>
         )}
-        <div style={{ fontSize: 11, color: '#333', textAlign: 'right' }}>{text.length}/500 · resets at 4am PST</div>
+        <div style={{ fontSize: 11, color: '#333', textAlign: 'right' }}>{text.length}/500</div>
       </form>
     </div>
   );

@@ -53,7 +53,7 @@ export default function Home() {
           Statpad Score
         </h1>
         <p style={{ fontSize: 15, color: '#888', margin: '0 0 36px', lineHeight: 1.5 }}>
-          Daily leaderboards for <a href="https://statpadgame.com" target="_blank" rel="noopener noreferrer" style={{ color: '#1db954', textDecoration: 'none' }}>Statpad</a> — play with your friends, no signup.
+          Daily leaderboards for <a href="https://statpadgame.com" target="_blank" rel="noopener noreferrer" style={{ color: '#1db954', textDecoration: 'none' }}>Statpad</a> — play with your friends, no signup, totally free.
         </p>
 
         {/* Create */}
@@ -136,9 +136,9 @@ export default function Home() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
               { n: '1', t: 'Create a league', d: 'Name it, share the link with your friends.' },
-              { n: '2', t: 'Play Statpad and screenshot your result', d: 'Any sport, any day. Just keep the screenshot.' },
-              { n: '3', t: 'Upload to your league', d: "Claude reads your score automatically. Leaderboard updates in seconds." },
-              { n: '4', t: 'Compete daily', d: 'Resets at 4am PST. Streaks, all-time stats, purple hits, and chat for trash talk.' },
+              { n: '2', t: 'Play Statpad and screenshot your result', d: 'Any or all sports, just keep the screenshots.' },
+              { n: '3', t: 'Upload your screenshots', d: 'Make sure to include your percentile. Claude reads your score automatically.' },
+              { n: '4', t: 'Compete daily', d: 'Leaderboard, streaks, all-time stats, purple hits, and chat.' },
             ].map((s) => (
               <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                 <div style={{

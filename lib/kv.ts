@@ -86,7 +86,7 @@ export async function deleteScore(leagueId: string, date: string, scoreId: strin
 
 export async function deleteLeague(leagueId: string): Promise<void> {
   // Find every key associated with this league and nuke them
-  const patterns = [`league:${leagueId}`, `dates:${leagueId}`, `scores:${leagueId}:*`, `messages:${leagueId}:*`];
+  const patterns = [`league:${leagueId}`, `dates:${leagueId}`, `scores:${leagueId}:*`, `messages:${leagueId}`, `messages:${leagueId}:*`];
   for (const pattern of patterns) {
     const keys = await kv.keys(pattern);
     if (keys.length > 0) await kv.del(...keys);
@@ -100,12 +100,12 @@ export async function deleteLeague(leagueId: string): Promise<void> {
 // --- Messages ---
 
 export async function saveMessage(message: Message): Promise<void> {
-  const key = `messages:${message.leagueId}:${message.date}`;
+  const key = `messages:${message.leagueId}`;
   const existing = (await kv.get<Message[]>(key)) || [];
   existing.push(message);
   await kv.set(key, existing);
 }
 
-export async function getMessages(leagueId: string, date: string): Promise<Message[]> {
-  return (await kv.get<Message[]>(`messages:${leagueId}:${date}`)) || [];
+export async function getMessages(leagueId: string): Promise<Message[]> {
+  return (await kv.get<Message[]>(`messages:${leagueId}`)) || [];
 }

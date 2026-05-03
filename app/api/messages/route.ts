@@ -7,8 +7,7 @@ export async function GET(req: NextRequest) {
   const leagueId = searchParams.get('leagueId');
   if (!leagueId) return NextResponse.json({ error: 'Missing leagueId' }, { status: 400 });
 
-  const date = searchParams.get('date') || getStatpadDate();
-  const messages = await getMessages(leagueId, date);
+  const messages = await getMessages(leagueId);
   return NextResponse.json(messages);
 }
 
