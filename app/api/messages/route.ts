@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMessages, saveMessage } from '@/lib/kv';
 import { getStatpadDate } from '@/lib/date';
+import { checkLimit, getIp, messageLimiter } from '@/lib/ratelimit';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -13,6 +14,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkLimit(messageLimiter, getIp(req));
+    if (!rl.success) {
+      const retry = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: 'Slow down — too many messages.' },
+        { status: 429, headers: { 'Retry-After': String(retry) } },
+      );
+    }
+
     const { leagueId, playerName, text } = await req.json();
     if (!leagueId || !playerName?.trim() || !text?.trim()) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });

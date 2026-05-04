@@ -3,11 +3,24 @@ import Anthropic from '@anthropic-ai/sdk';
 import { put } from '@vercel/blob';
 import { saveScore } from '@/lib/kv';
 import { getStatpadDate } from '@/lib/date';
+import { checkLimit, getIp, submitLimiter } from '@/lib/ratelimit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkLimit(submitLimiter, getIp(req));
+    if (!rl.success) {
+      const retry = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: 'Too many submissions. Please slow down and try again later.' },
+        { status: 429, headers: { 'Retry-After': String(retry) } },
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('screenshot') as File | null;
     const playerName = (formData.get('playerName') as string | null)?.trim();
@@ -17,8 +30,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing screenshot, player name, or league.' }, { status: 400 });
     }
 
-    // Upload screenshot to Vercel Blob
-    const blob = await put(`screenshots/${Date.now()}-${file.name}`, file, { access: 'public' });
+    if (!ALLOWED_MIME.has(file.type)) {
+      return NextResponse.json({ error: 'Unsupported image type. Use JPEG, PNG, WebP, or GIF.' }, { status: 415 });
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: 'Screenshot is too large (max 5MB).' }, { status: 413 });
+    }
+
+    // Upload screenshot to Vercel Blob (use a UUID prefix so weird filenames can't break the path)
+    const blob = await put(`screenshots/${crypto.randomUUID()}`, file, { access: 'public', contentType: file.type });
 
     // Convert to base64 for Claude
     const buffer = await file.arrayBuffer();

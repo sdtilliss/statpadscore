@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createLeague, getLeague, getAllLeagues } from '@/lib/kv';
+import { checkLimit, getIp, leagueLimiter } from '@/lib/ratelimit';
 
 function generateId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -9,6 +10,15 @@ function generateId(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await checkLimit(leagueLimiter, getIp(req));
+  if (!rl.success) {
+    const retry = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: 'Too many leagues created. Try again later.' },
+      { status: 429, headers: { 'Retry-After': String(retry) } },
+    );
+  }
+
   const { name } = await req.json();
   if (!name?.trim()) {
     return NextResponse.json({ error: 'League name is required.' }, { status: 400 });

@@ -1,4 +1,5 @@
 import type { Score, PlayerStats } from './types';
+import { getStatpadDate } from './date';
 
 export function computePlayerStats(scores: Score[]): PlayerStats[] {
   const byPlayer: Record<string, Score[]> = {};
@@ -11,18 +12,20 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
   return Object.entries(byPlayer)
     .map(([, playerScores]) => {
       const name = playerScores[0].playerName;
-      const dates = [...new Set(playerScores.map((s) => s.date))].sort();
+      const dateSet = new Set(playerScores.map((s) => s.date));
+      const dates = [...dateSet].sort();
 
-      // Streak: consecutive days ending today or yesterday
+      // Streak: consecutive Statpad days ending today.
+      // Use the same 4am-PT day boundary as the rest of the app so the
+      // streak doesn't drift by a day around midnight UTC.
       let streak = 0;
-      const today = new Date().toISOString().split('T')[0];
-      let check = today;
-      // eslint-disable-next-line no-constant-condition
+      let check = getStatpadDate();
       while (true) {
-        if (dates.includes(check)) {
+        if (dateSet.has(check)) {
           streak++;
-          const d = new Date(check);
-          d.setDate(d.getDate() - 1);
+          // Walk back one day in UTC (anchor at noon to dodge DST edges).
+          const d = new Date(check + 'T12:00:00Z');
+          d.setUTCDate(d.getUTCDate() - 1);
           check = d.toISOString().split('T')[0];
         } else {
           break;
