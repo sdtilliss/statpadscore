@@ -17,10 +17,13 @@ A daily leaderboard for [Statpad](https://statpadgame.com) — the sports trivia
 
 ## How it works
 
-1. Play Statpad, screenshot your results
-2. Go to your league URL → **+ Submit**
-3. Enter your name, upload the screenshot
-4. Claude reads the score, saves it, done
+1. Create a league
+2. Share the league link with your friends
+3. Play [Statpad](https://statpadgame.com) and screenshot your results
+4. Go to your league URL → **+ Submit** and upload the screenshot
+5. Claude reads the score and updates the leaderboard
+
+You can also see all-time stats, purple-tile hits, streaks, league chat, and more.
 
 ## Stack
 
