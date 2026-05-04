@@ -17,7 +17,7 @@ A daily leaderboard for [Statpad](https://statpadgame.com) — the sports trivia
 
 ## How it works
 
-1. Create a league
+1. Create a league on [Statpad Score](https://statpadscore.vercel.app/)
 2. Share the league link with your friends
 3. Play [Statpad](https://statpadgame.com) and screenshot your results
 4. Go to your league URL → **+ Submit** and upload the screenshot
