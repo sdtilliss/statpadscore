@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { createLeague, getLeague, getAllLeagues } from '@/lib/kv';
 import { checkLimit, getIp, leagueLimiter } from '@/lib/ratelimit';
+import { notifyNewLeague } from '@/lib/notify';
 
 function generateId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -26,6 +28,11 @@ export async function POST(req: NextRequest) {
   const id = generateId();
   const league = { id, name: name.trim(), createdAt: new Date().toISOString() };
   await createLeague(league);
+
+  // Fire admin notification after the response goes out so league creation
+  // never waits on Resend, and a Resend hiccup can never break the user flow.
+  after(() => notifyNewLeague(league, getIp(req)));
+
   return NextResponse.json(league);
 }
 
