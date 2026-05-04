@@ -15,6 +15,105 @@ const SPORT_BG: Record<string, string> = {
 function sportColor(sport: string) { return SPORT_COLORS[sport] || '#888'; }
 function sportBg(sport: string) { return SPORT_BG[sport] || 'rgba(136,136,136,0.1)'; }
 
+function DatePickerPopover({
+  availableDates, selected, todayStr, onSelect, onClose,
+}: {
+  availableDates: Set<string>;
+  selected: string;
+  todayStr: string;
+  onSelect: (date: string) => void;
+  onClose: () => void;
+}) {
+  const sorted = [...availableDates].sort();
+  const earliest = sorted[0] ?? selected;
+  const [eY, eM] = earliest.split('-').map(Number);
+  const [tY, tM] = todayStr.split('-').map(Number);
+  const [sY, sM] = selected.split('-').map(Number);
+  const [viewYear, setViewYear] = useState(sY);
+  const [viewMonth, setViewMonth] = useState(sM); // 1-12
+
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', fn);
+    return () => document.removeEventListener('keydown', fn);
+  }, [onClose]);
+
+  // Build the cell grid for the visible month
+  const firstWeekday = new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(viewYear, viewMonth, 0)).getUTCDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push(`${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+  }
+
+  const canPrev = viewYear > eY || (viewYear === eY && viewMonth > eM);
+  const canNext = viewYear < tY || (viewYear === tY && viewMonth < tM);
+  function prev() {
+    if (!canPrev) return;
+    if (viewMonth === 1) { setViewYear(viewYear - 1); setViewMonth(12); } else setViewMonth(viewMonth - 1);
+  }
+  function next() {
+    if (!canNext) return;
+    if (viewMonth === 12) { setViewYear(viewYear + 1); setViewMonth(1); } else setViewMonth(viewMonth + 1);
+  }
+  const monthLabel = new Date(Date.UTC(viewYear, viewMonth - 1, 1))
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: '#141414', border: '1px solid #2a2a2a', borderRadius: 14,
+        padding: 16, maxWidth: 320, width: '100%',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <button onClick={prev} disabled={!canPrev} style={{
+            background: 'none', border: 'none', color: canPrev ? '#888' : '#2a2a2a',
+            fontSize: 22, cursor: canPrev ? 'pointer' : 'default', padding: '4px 10px', lineHeight: 1,
+          }}>‹</button>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{monthLabel}</span>
+          <button onClick={next} disabled={!canNext} style={{
+            background: 'none', border: 'none', color: canNext ? '#888' : '#2a2a2a',
+            fontSize: 22, cursor: canNext ? 'pointer' : 'default', padding: '4px 10px', lineHeight: 1,
+          }}>›</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <div key={i} style={{ textAlign: 'center', fontSize: 10, color: '#444', fontWeight: 700, letterSpacing: 0.5 }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+          {cells.map((date, i) => {
+            if (!date) return <div key={i} />;
+            const day = Number(date.slice(-2));
+            const available = availableDates.has(date);
+            const isToday = date === todayStr;
+            const isSelected = date === selected;
+            return (
+              <button
+                key={date}
+                disabled={!available}
+                onClick={() => available && onSelect(date)}
+                style={{
+                  background: isSelected ? '#1db954' : available ? '#1a1a1a' : 'transparent',
+                  color: isSelected ? '#fff' : available ? '#fff' : '#333',
+                  border: isToday && !isSelected ? '1px solid #1db954' : '1px solid transparent',
+                  borderRadius: 8, padding: '9px 0', fontSize: 13,
+                  fontWeight: isToday || isSelected ? 700 : 500,
+                  cursor: available ? 'pointer' : 'default', transition: 'background 0.15s, color 0.15s',
+                }}
+              >{day}</button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScreenshotModal({ url, onClose }: { url: string; onClose: () => void }) {
   useEffect(() => {
     const fn = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -338,6 +437,7 @@ export default function LeaguePage() {
   const [admin, setAdmin] = useState(false);
   const [scoreToDelete, setScoreToDelete] = useState<Score | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Check admin status once on mount
   useEffect(() => {
@@ -486,11 +586,21 @@ export default function LeaguePage() {
                   disabled={navDates.indexOf(viewDate) >= navDates.length - 1}
                   style={{ background: 'none', border: 'none', color: navDates.indexOf(viewDate) >= navDates.length - 1 ? '#2a2a2a' : '#666', fontSize: 20, cursor: navDates.indexOf(viewDate) >= navDates.length - 1 ? 'default' : 'pointer', padding: '4px 8px' }}
                 >‹</button>
-                <span style={{ fontSize: 13, color: viewDate === clientToday() ? '#1db954' : '#888', fontWeight: 600 }}>
+                <button
+                  onClick={() => setPickerOpen(true)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 13, color: viewDate === clientToday() ? '#1db954' : '#888',
+                    fontWeight: 600, padding: '4px 10px', borderRadius: 6,
+                    display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
+                  }}
+                  title="Pick a date"
+                >
                   {viewDate === clientToday()
                     ? 'Today'
                     : new Date(viewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </span>
+                  <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
+                </button>
                 <button
                   onClick={() => {
                     const idx = navDates.indexOf(viewDate);
@@ -513,6 +623,20 @@ export default function LeaguePage() {
           <ChatTab leagueId={leagueId} />
         )}
       </div>
+
+      {pickerOpen && navDates.length > 0 && (
+        <DatePickerPopover
+          availableDates={new Set(navDates)}
+          selected={viewDate}
+          todayStr={clientToday()}
+          onClose={() => setPickerOpen(false)}
+          onSelect={(d) => {
+            setViewDate(d);
+            loadScoresForDate(d);
+            setPickerOpen(false);
+          }}
+        />
+      )}
 
       {scoreToDelete && (
         <div onClick={() => !deleting && setScoreToDelete(null)} style={{
