@@ -331,9 +331,9 @@ function ChatTab({ leagueId }: { leagueId: string }) {
   }
 
   function formatDateHeader(dateStr: string): string {
-    // Compare against the same Statpad-day boundary used elsewhere (4am PST)
-    const todayShifted = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-    const yesterdayShifted = new Date(Date.now() - (4 + 24) * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    // Compare against the same Statpad-day boundary used elsewhere (3am PT)
+    const todayShifted = new Date(Date.now() - 3 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    const yesterdayShifted = new Date(Date.now() - (3 + 24) * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
     if (dateStr === todayShifted) return 'Today';
     if (dateStr === yesterdayShifted) return 'Yesterday';
     return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -461,9 +461,9 @@ export default function LeaguePage() {
     }
   }
 
-  // Same 4am PST boundary as the server
+  // Same 3am PT boundary as the server
   function clientToday(): string {
-    const shifted = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const shifted = new Date(Date.now() - 3 * 60 * 60 * 1000);
     return shifted.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
   }
 

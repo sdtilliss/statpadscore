@@ -16,7 +16,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
       const dates = [...dateSet].sort();
 
       // Streak: consecutive Statpad days ending today.
-      // Use the same 4am-PT day boundary as the rest of the app so the
+      // Use the same 3am-PT day boundary as the rest of the app so the
       // streak doesn't drift by a day around midnight UTC.
       let streak = 0;
       let check = getStatpadDate();
