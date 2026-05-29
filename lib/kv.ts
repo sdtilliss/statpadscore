@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import type { Score, League, Message } from './types';
+import { getStatpadDate } from './date';
 
 const kv = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -64,6 +65,25 @@ export async function getRecentScores(leagueId: string, days = 90): Promise<Scor
   const recent = dates.slice(0, days);
   const sets = await Promise.all(recent.map((d) => getScoresByDate(leagueId, d)));
   return sets.flat();
+}
+
+export interface LeagueStats {
+  members: number; // distinct player names who have ever submitted
+  today: number; // submissions on the current Statpad day
+  total: number; // all-time submissions
+}
+
+export async function getLeagueStats(leagueId: string): Promise<LeagueStats> {
+  const dates = await getAllDates(leagueId);
+  if (dates.length === 0) return { members: 0, today: 0, total: 0 };
+  const sets = await Promise.all(dates.map((d) => getScoresByDate(leagueId, d)));
+  const all = sets.flat();
+  const today = getStatpadDate();
+  return {
+    members: new Set(all.map((s) => s.playerName.toLowerCase())).size,
+    today: all.filter((s) => s.date === today).length,
+    total: all.length,
+  };
 }
 
 export async function deleteScore(leagueId: string, date: string, scoreId: string): Promise<boolean> {

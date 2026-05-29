@@ -8,6 +8,7 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [leagues, setLeagues] = useState<League[]>([]);
+  const [stats, setStats] = useState<Record<string, { members: number; today: number; total: number }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
@@ -24,9 +25,14 @@ export default function AdminPage() {
 
   const loadLeagues = useCallback(() => {
     setLoading(true);
-    fetch('/api/league?all=1')
-      .then((r) => r.json())
-      .then((data) => setLeagues(data))
+    Promise.all([
+      fetch('/api/league?all=1').then((r) => r.json()),
+      fetch('/api/admin/stats').then((r) => r.json()).catch(() => ({})),
+    ])
+      .then(([leaguesData, statsData]) => {
+        setLeagues(leaguesData);
+        setStats(statsData || {});
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -148,6 +154,16 @@ export default function AdminPage() {
                   <div style={{ fontSize: 11, color: '#555', marginTop: 3, fontFamily: 'monospace' }}>
                     {league.id} &middot; {new Date(league.createdAt).toLocaleDateString()}
                   </div>
+                  {(() => {
+                    const s = stats[league.id] || { members: 0, today: 0, total: 0 };
+                    return (
+                      <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 11, color: '#666' }}>
+                        <span><strong style={{ color: '#999' }}>{s.members}</strong> {s.members === 1 ? 'member' : 'members'}</span>
+                        <span><strong style={{ color: s.today > 0 ? '#1db954' : '#999' }}>{s.today}</strong> today</span>
+                        <span><strong style={{ color: '#999' }}>{s.total}</strong> total</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <a href={`/${league.id}`} style={{
                   color: '#555', fontSize: 12, textDecoration: 'none',
