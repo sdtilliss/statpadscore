@@ -126,6 +126,13 @@ export default function AdminPage() {
     );
   }
 
+  // Sort leagues by scores submitted today (desc), then all-time total (desc).
+  const sortedLeagues = [...leagues].sort((a, b) => {
+    const sa = stats[a.id] || { today: 0, total: 0 };
+    const sb = stats[b.id] || { today: 0, total: 0 };
+    return sb.today - sa.today || sb.total - sa.total;
+  });
+
   return (
     <main style={{ ...base, justifyContent: 'flex-start', paddingTop: 40 }}>
       <div style={{ width: '100%', maxWidth: 480 }}>
@@ -139,11 +146,11 @@ export default function AdminPage() {
 
         {loading ? (
           <div style={{ color: '#444', fontSize: 14 }}>Loading...</div>
-        ) : leagues.length === 0 ? (
+        ) : sortedLeagues.length === 0 ? (
           <div style={{ color: '#444', fontSize: 14 }}>No leagues yet.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {leagues.map((league) => (
+            {sortedLeagues.map((league) => (
               <div key={league.id} style={{
                 background: '#141414', border: '1px solid #222',
                 borderRadius: 10, padding: '14px 16px',
