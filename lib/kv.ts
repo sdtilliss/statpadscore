@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { Score, League, Message } from './types';
+import type { Score, League, Message, TripleCrown } from './types';
 import { getStatpadDate } from './date';
 
 const kv = new Redis({
@@ -106,7 +106,7 @@ export async function deleteScore(leagueId: string, date: string, scoreId: strin
 
 export async function deleteLeague(leagueId: string): Promise<void> {
   // Find every key associated with this league and nuke them
-  const patterns = [`league:${leagueId}`, `dates:${leagueId}`, `scores:${leagueId}:*`, `messages:${leagueId}`, `messages:${leagueId}:*`];
+  const patterns = [`league:${leagueId}`, `dates:${leagueId}`, `scores:${leagueId}:*`, `messages:${leagueId}`, `messages:${leagueId}:*`, `triplecrowns:${leagueId}`];
   for (const pattern of patterns) {
     const keys = await kv.keys(pattern);
     if (keys.length > 0) await kv.del(...keys);
@@ -115,6 +115,24 @@ export async function deleteLeague(leagueId: string): Promise<void> {
   const ids = (await kv.get<string[]>('league_ids')) || [];
   const remaining = ids.filter((id) => id !== leagueId);
   if (remaining.length !== ids.length) await kv.set('league_ids', remaining);
+}
+
+// --- Triple Crowns ---
+
+export async function getTripleCrowns(leagueId: string): Promise<TripleCrown[]> {
+  return (await kv.get<TripleCrown[]>(`triplecrowns:${leagueId}`)) || [];
+}
+
+// Idempotent: at most one crown per Statpad day. Returns true if a new crown
+// was recorded, false if this day was already crowned (so the cron can re-run
+// safely without double-counting).
+export async function addTripleCrown(crown: TripleCrown): Promise<boolean> {
+  const key = `triplecrowns:${crown.leagueId}`;
+  const existing = (await kv.get<TripleCrown[]>(key)) || [];
+  if (existing.some((c) => c.date === crown.date)) return false;
+  existing.push(crown);
+  await kv.set(key, existing);
+  return true;
 }
 
 // --- Messages ---

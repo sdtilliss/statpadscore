@@ -28,6 +28,12 @@ export interface Message {
   sentAt: string; // ISO timestamp
 }
 
+export interface TripleCrown {
+  leagueId: string;
+  date: string; // YYYY-MM-DD (Statpad day the crown was won)
+  playerName: string;
+}
+
 export interface PlayerStats {
   playerName: string;
   gamesPlayed: number;

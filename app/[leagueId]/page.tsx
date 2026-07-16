@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import type { Score, PlayerStats, League, Message } from '@/lib/types';
+import type { Score, PlayerStats, League, Message, TripleCrown } from '@/lib/types';
 import { computePlayerStats } from '@/lib/stats';
 
 const SPORT_COLORS: Record<string, string> = {
@@ -219,7 +219,40 @@ function TodayTab({ scores, leagueId, admin, onDelete }: { scores: Score[]; leag
   );
 }
 
-function StatsTab({ stats }: { stats: PlayerStats[] }) {
+function TripleCrownBanner({ crowns }: { crowns: TripleCrown[] }) {
+  if (crowns.length === 0) return null;
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const c of crowns) {
+    const key = c.playerName.toLowerCase();
+    const entry = counts.get(key) || { name: c.playerName, count: 0 };
+    entry.count++;
+    counts.set(key, entry);
+  }
+  const ranked = [...counts.values()].sort((a, b) => b.count - a.count);
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#f5c518', letterSpacing: 0.5 }}>👑 Triple Crowns</span>
+        <span style={{ fontSize: 11, color: '#555' }}>top score in all 3 sports</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {ranked.map((p) => (
+          <div key={p.name} style={{
+            background: 'rgba(245,197,24,0.08)', border: '1px solid rgba(245,197,24,0.25)',
+            borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{p.name}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#f5c518' }}>
+              👑 <span style={{ color: '#888', fontWeight: 600, marginLeft: 2 }}>×{p.count}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatsTab({ stats, crowns }: { stats: PlayerStats[]; crowns: TripleCrown[] }) {
   const allSports = [...new Set(stats.flatMap((p) => Object.keys(p.sportBreakdown)))].sort();
   const [activeSport, setActiveSport] = useState('');
   const sport = activeSport && allSports.includes(activeSport) ? activeSport : allSports[0];
@@ -235,6 +268,7 @@ function StatsTab({ stats }: { stats: PlayerStats[] }) {
 
   return (
     <div>
+      <TripleCrownBanner crowns={crowns} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
         {allSports.map((s) => (
           <button key={s} onClick={() => setActiveSport(s)} style={{
@@ -429,6 +463,7 @@ export default function LeaguePage() {
   const [league, setLeague] = useState<League | null>(null);
   const [todayScores, setTodayScores] = useState<Score[]>([]);
   const [allTimeStats, setAllTimeStats] = useState<PlayerStats[]>([]);
+  const [tripleCrowns, setTripleCrowns] = useState<TripleCrown[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -471,11 +506,12 @@ export default function LeaguePage() {
     setLoading(true);
     try {
       const todayStr = clientToday();
-      const [leagueRes, datesRes, scoresRes, allRes] = await Promise.all([
+      const [leagueRes, datesRes, scoresRes, allRes, crownsRes] = await Promise.all([
         fetch(`/api/league?id=${leagueId}`),
         fetch(`/api/scores?leagueId=${leagueId}&mode=dates`),
         fetch(`/api/scores?leagueId=${leagueId}`), // no date = server uses getStatpadDate()
         fetch(`/api/scores?leagueId=${leagueId}&mode=alltime`),
+        fetch(`/api/triple-crowns?leagueId=${leagueId}`),
       ]);
       if (leagueRes.status === 404) { setNotFound(true); setLoading(false); return; }
       setLeague(await leagueRes.json());
@@ -486,6 +522,7 @@ export default function LeaguePage() {
       setViewDate(todayStr);
       setTodayScores(await scoresRes.json());
       setAllTimeStats(computePlayerStats(await allRes.json()));
+      setTripleCrowns(await crownsRes.json());
     } finally {
       setLoading(false);
     }
@@ -618,7 +655,7 @@ export default function LeaguePage() {
             <TodayTab scores={todayScores} leagueId={leagueId} admin={admin} onDelete={(s) => setScoreToDelete(s)} />
           </>
         ) : tab === 'stats' ? (
-          <StatsTab stats={allTimeStats} />
+          <StatsTab stats={allTimeStats} crowns={tripleCrowns} />
         ) : (
           <ChatTab leagueId={leagueId} />
         )}
