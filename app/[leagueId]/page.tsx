@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import type { Score, PlayerStats, League, Message, TripleCrown } from '@/lib/types';
+import type { Score, PlayerStats, League, TripleCrown } from '@/lib/types';
 import { computePlayerStats } from '@/lib/stats';
 
 const SPORT_COLORS: Record<string, string> = {
@@ -219,40 +219,7 @@ function TodayTab({ scores, leagueId, admin, onDelete }: { scores: Score[]; leag
   );
 }
 
-function TripleCrownBanner({ crowns }: { crowns: TripleCrown[] }) {
-  if (crowns.length === 0) return null;
-  const counts = new Map<string, { name: string; count: number }>();
-  for (const c of crowns) {
-    const key = c.playerName.toLowerCase();
-    const entry = counts.get(key) || { name: c.playerName, count: 0 };
-    entry.count++;
-    counts.set(key, entry);
-  }
-  const ranked = [...counts.values()].sort((a, b) => b.count - a.count);
-  return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#f5c518', letterSpacing: 0.5 }}>👑 Triple Crowns</span>
-        <span style={{ fontSize: 11, color: '#555' }}>top score in all 3 sports</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {ranked.map((p) => (
-          <div key={p.name} style={{
-            background: 'rgba(245,197,24,0.08)', border: '1px solid rgba(245,197,24,0.25)',
-            borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{p.name}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#f5c518' }}>
-              👑 <span style={{ color: '#888', fontWeight: 600, marginLeft: 2 }}>×{p.count}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StatsTab({ stats, crowns }: { stats: PlayerStats[]; crowns: TripleCrown[] }) {
+function StatsTab({ stats }: { stats: PlayerStats[] }) {
   const allSports = [...new Set(stats.flatMap((p) => Object.keys(p.sportBreakdown)))].sort();
   const [activeSport, setActiveSport] = useState('');
   const sport = activeSport && allSports.includes(activeSport) ? activeSport : allSports[0];
@@ -268,7 +235,6 @@ function StatsTab({ stats, crowns }: { stats: PlayerStats[]; crowns: TripleCrown
 
   return (
     <div>
-      <TripleCrownBanner crowns={crowns} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
         {allSports.map((s) => (
           <button key={s} onClick={() => setActiveSport(s)} style={{
@@ -312,154 +278,82 @@ function StatsTab({ stats, crowns }: { stats: PlayerStats[]; crowns: TripleCrown
   );
 }
 
-function ChatTab({ leagueId }: { leagueId: string }) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [name, setName] = useState('');
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('statpad_name');
-    if (saved) setName(saved);
-  }, []);
-
-  const loadMessages = useCallback(async () => {
-    const res = await fetch(`/api/messages?leagueId=${leagueId}`);
-    if (res.ok) setMessages(await res.json());
-  }, [leagueId]);
-
-  useEffect(() => { loadMessages(); }, [loadMessages]);
-
-  // Scroll to bottom when messages arrive
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !text.trim() || sending) return;
-    setSending(true);
-    setError('');
-    localStorage.setItem('statpad_name', name.trim());
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leagueId, playerName: name.trim(), text: text.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send');
-      setText('');
-      await loadMessages();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setSending(false);
-    }
+function CrownsTab({ crowns, onViewDate }: { crowns: TripleCrown[]; onViewDate: (date: string) => void }) {
+  // Per-player leaderboard (counts).
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const c of crowns) {
+    const key = c.playerName.toLowerCase();
+    const entry = counts.get(key) || { name: c.playerName, count: 0 };
+    entry.count++;
+    counts.set(key, entry);
   }
+  const ranked = [...counts.values()].sort((a, b) => b.count - a.count);
 
-  function formatTime(iso: string) {
-    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  // Full history, newest first.
+  const history = [...crowns].sort((a, b) => b.date.localeCompare(a.date));
+
+  function fmtDate(d: string) {
+    return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    });
   }
-
-  function formatDateHeader(dateStr: string): string {
-    // Compare against the same Statpad-day boundary used elsewhere (3am PT)
-    const todayShifted = new Date(Date.now() - 3 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-    const yesterdayShifted = new Date(Date.now() - (3 + 24) * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-    if (dateStr === todayShifted) return 'Today';
-    if (dateStr === yesterdayShifted) return 'Yesterday';
-    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-
-  // Sort by sentAt ascending so oldest is at top, newest at bottom
-  const sortedMessages = [...messages].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* Message list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 120, marginBottom: 20 }}>
-        {sortedMessages.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#444', padding: '40px 0', fontSize: 14 }}>
-            No messages yet. Say something! 👋
+    <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#f5c518', letterSpacing: 0.5 }}>👑 Triple Crowns</span>
+        <span style={{ fontSize: 11, color: '#555' }}>top score in all 3 sports</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 28 }}>
+        {ranked.map((p) => (
+          <div key={p.name} style={{
+            background: 'rgba(245,197,24,0.08)', border: '1px solid rgba(245,197,24,0.25)',
+            borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{p.name}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#f5c518' }}>
+              👑 <span style={{ color: '#888', fontWeight: 600, marginLeft: 2 }}>×{p.count}</span>
+            </span>
           </div>
-        ) : (
-          sortedMessages.map((m, i) => {
-            const prev = sortedMessages[i - 1];
-            const showDateHeader = !prev || prev.date !== m.date;
-            return (
-              <div key={m.id}>
-                {showDateHeader && (
-                  <div style={{
-                    textAlign: 'center', fontSize: 10, color: '#444', letterSpacing: 1,
-                    textTransform: 'uppercase', fontWeight: 700,
-                    margin: i === 0 ? '0 0 10px' : '14px 0 10px',
-                  }}>
-                    {formatDateHeader(m.date)}
-                  </div>
-                )}
-                <div style={{
-                  background: '#141414', border: '1px solid #1e1e1e',
-                  borderRadius: 10, padding: '10px 14px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{m.playerName}</span>
-                    <span style={{ fontSize: 11, color: '#444' }}>{formatTime(m.sentAt)}</span>
-                  </div>
-                  <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.45, wordBreak: 'break-word' }}>{m.text}</div>
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
+        ))}
       </div>
 
-      {/* Compose */}
-      <form onSubmit={send} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <input
-          type="text" value={name} onChange={(e) => setName(e.target.value)}
-          placeholder="Your name" required
-          style={{
-            background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10,
-            padding: '11px 14px', fontSize: 14, color: '#fff', outline: 'none',
-          }}
-        />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <textarea
-            value={text} onChange={(e) => setText(e.target.value)}
-            placeholder="Say something…" required maxLength={500}
-            rows={2}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e as unknown as React.FormEvent); }
-            }}
+      <div style={{
+        fontSize: 10, color: '#444', letterSpacing: 1, textTransform: 'uppercase',
+        fontWeight: 700, marginBottom: 10,
+      }}>History</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {history.map((c) => (
+          <button
+            key={c.date}
+            onClick={() => onViewDate(c.date)}
+            title="View this day's scores"
             style={{
-              flex: 1, background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10,
-              padding: '11px 14px', fontSize: 14, color: '#fff', outline: 'none',
-              resize: 'none', fontFamily: 'inherit',
+              background: '#141414', border: '1px solid #222', borderRadius: 10,
+              padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: 'inherit',
+              transition: 'filter 0.15s',
             }}
-          />
-          <button type="submit" disabled={!name.trim() || !text.trim() || sending} style={{
-            background: name.trim() && text.trim() ? '#1db954' : '#1a1a1a',
-            color: name.trim() && text.trim() ? '#fff' : '#444',
-            border: 'none', borderRadius: 10, padding: '0 18px',
-            fontSize: 20, cursor: name.trim() && text.trim() ? 'pointer' : 'default',
-            transition: 'background 0.15s, color 0.15s', alignSelf: 'stretch',
-          }}>↑</button>
-        </div>
-        {error && (
-          <div style={{ fontSize: 12, color: '#e07060' }}>{error}</div>
-        )}
-        <div style={{ fontSize: 11, color: '#333', textAlign: 'right' }}>{text.length}/500</div>
-      </form>
+            onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.4)')}
+            onMouseLeave={(e) => (e.currentTarget.style.filter = 'brightness(1)')}
+          >
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>
+              <span style={{ marginRight: 6 }}>👑</span>{c.playerName}
+            </span>
+            <span style={{ fontSize: 12, color: '#888', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {fmtDate(c.date)}
+              <span style={{ color: '#555' }}>›</span>
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
 export default function LeaguePage() {
   const { leagueId } = useParams<{ leagueId: string }>();
-  const [tab, setTab] = useState<'today' | 'stats' | 'chat'>('today');
+  const [tab, setTab] = useState<'today' | 'stats' | 'crowns'>('today');
   const [league, setLeague] = useState<League | null>(null);
   const [todayScores, setTodayScores] = useState<Score[]>([]);
   const [allTimeStats, setAllTimeStats] = useState<PlayerStats[]>([]);
@@ -533,6 +427,13 @@ export default function LeaguePage() {
     setTodayScores(await res.json());
   }, [leagueId]);
 
+  // Jump from the Crowns tab to that day's scoreboard on the Today tab.
+  const viewCrownDate = useCallback((date: string) => {
+    setViewDate(date);
+    loadScoresForDate(date);
+    setTab('today');
+  }, [loadScoresForDate]);
+
   useEffect(() => { loadData(); }, [loadData]);
 
   // Remember this league so the homepage can redirect back to it
@@ -590,7 +491,10 @@ export default function LeaguePage() {
         </div>
 
         <div style={{ display: 'flex', marginTop: 24, borderBottom: '1px solid #1a1a1a' }}>
-          {(['today', 'stats', 'chat'] as const).map((t) => (
+          {(tripleCrowns.length > 0
+            ? (['today', 'stats', 'crowns'] as const)
+            : (['today', 'stats'] as const)
+          ).map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: tab === t ? '#fff' : '#444',
@@ -598,7 +502,7 @@ export default function LeaguePage() {
               fontSize: 13, padding: '10px 18px',
               borderBottom: tab === t ? '2px solid #fff' : '2px solid transparent',
             }}>
-              {t === 'today' ? "Today's Scores" : t === 'stats' ? 'All-Time Stats' : '💬 Chat'}
+              {t === 'today' ? "Today's Scores" : t === 'stats' ? 'All-Time Stats' : '👑 Crowns'}
             </button>
           ))}
         </div>
@@ -655,9 +559,9 @@ export default function LeaguePage() {
             <TodayTab scores={todayScores} leagueId={leagueId} admin={admin} onDelete={(s) => setScoreToDelete(s)} />
           </>
         ) : tab === 'stats' ? (
-          <StatsTab stats={allTimeStats} crowns={tripleCrowns} />
+          <StatsTab stats={allTimeStats} />
         ) : (
-          <ChatTab leagueId={leagueId} />
+          <CrownsTab crowns={tripleCrowns} onViewDate={viewCrownDate} />
         )}
       </div>
 
