@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
   }
 
   if (mode === 'alltime') {
-    const scores = await getRecentScores(leagueId, 90);
+    // Cover the full retained history (the date index keeps up to 365 days),
+    // so "All-Time" isn't silently capped to a 90-day window.
+    const scores = await getRecentScores(leagueId, 365);
     return NextResponse.json(scores);
   }
 
