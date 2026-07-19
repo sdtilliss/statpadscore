@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { put } from '@vercel/blob';
 import { saveScore } from '@/lib/kv';
-import { getStatpadDate } from '@/lib/date';
+import { getStatpadDate, resolveStatpadDate } from '@/lib/date';
 import { checkLimit, getIp, submitLimiter } from '@/lib/ratelimit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -55,9 +55,10 @@ export async function POST(req: NextRequest) {
             { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
             {
               type: 'text',
-              text: `Extract data from this Statpad game screenshot. Return ONLY a JSON object with these fields:
+              text: `Extract data from this Statpad game screenshot. There are two dropdowns at the top-right: a DATE dropdown on the left and a SPORT dropdown on the right. Return ONLY a JSON object with these fields:
 {
-  "sport": the sport shown in the top-right dropdown (e.g. "MLB", "NFL", "NBA", "NHL"),
+  "date": the text in the DATE dropdown (the left one at the top-right). It is either the word "Today" or a short month/day date like "7/18". Return it exactly as shown,
+  "sport": the sport shown in the SPORT dropdown (the right one at the top-right, e.g. "MLB", "NFL", "NBA", "NHL"),
   "category": the stat category shown top-left (e.g. "WAR", "FPTS", "3PM", "HR"),
   "totalScore": the main score value — look for a label like "TOTAL SCORE", "AVERAGE SCORE", or similar, and if no clear label use the large prominent number in the center of the screen. Preserve exactly as shown including decimals (e.g. 0.900 not 900, 21.6 not 216),
   "totalGuesses": the number labeled "TOTAL GUESSES" (as a number),
@@ -72,7 +73,7 @@ Return only the JSON, no markdown or explanation.`,
     });
 
     const text = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
-    let parsed: { sport: string; category: string; totalScore: number; totalGuesses: number; percentile: number; purpleTiles: number };
+    let parsed: { date?: string; sport: string; category: string; totalScore: number; totalGuesses: number; percentile: number; purpleTiles: number };
     try {
       // Strip markdown code fences if Claude wrapped the response
       let jsonText = text;
@@ -87,7 +88,10 @@ Return only the JSON, no markdown or explanation.`,
       return NextResponse.json({ error: 'Could not read scores from screenshot. Please try again.' }, { status: 422 });
     }
 
-    const today = getStatpadDate();
+    // Read the date from the screenshot's dropdown ("Today" or e.g. "7/18") so a
+    // backfilled score files under its real day. Anything unrecognized or out of
+    // range falls back to the current Statpad day.
+    const date = resolveStatpadDate(parsed.date) ?? getStatpadDate();
     const score = {
       id: crypto.randomUUID(),
       leagueId,
@@ -98,7 +102,7 @@ Return only the JSON, no markdown or explanation.`,
       totalGuesses: Number(parsed.totalGuesses),
       percentile: Number(parsed.percentile),
       purpleTiles: Number(parsed.purpleTiles) || 0,
-      date: today,
+      date,
       screenshotUrl: blob.url,
       submittedAt: new Date().toISOString(),
     };

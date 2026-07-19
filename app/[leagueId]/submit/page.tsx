@@ -4,6 +4,18 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import type { Score } from '@/lib/types';
 
+// Same 3am-PT boundary the server uses, so "is this today?" agrees with storage.
+function clientStatpadDate(): string {
+  const shifted = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  return shifted.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+function fmtStatpadDate(d: string, withYear = false): string {
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}),
+  });
+}
+
 export default function LeagueSubmitPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const [playerName, setPlayerName] = useState('');
@@ -109,6 +121,7 @@ export default function LeagueSubmitPage() {
 
   if (status === 'success' && result) {
     const color = SPORT_COLORS[result.sport] || '#1db954';
+    const isBackfill = result.date !== clientStatpadDate();
     return (
       <main style={{
         minHeight: '100vh', background: '#0d0d0d', color: '#fff',
@@ -118,9 +131,18 @@ export default function LeagueSubmitPage() {
       }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Score saved!</h2>
-        <div style={{ fontSize: 13, color: '#555', marginBottom: 28 }}>
-          {result.playerName} &middot; {result.sport} &middot; {new Date().toLocaleDateString()}
+        <div style={{ fontSize: 13, color: '#555', marginBottom: isBackfill ? 12 : 28 }}>
+          {result.playerName} &middot; {result.sport} &middot; {fmtStatpadDate(result.date)}
         </div>
+        {isBackfill && (
+          <div style={{
+            background: 'rgba(245,197,24,0.1)', border: '1px solid rgba(245,197,24,0.3)',
+            color: '#f5c518', fontSize: 12, fontWeight: 600, borderRadius: 8,
+            padding: '8px 14px', marginBottom: 24, textAlign: 'center',
+          }}>
+            📅 Backfilled to {fmtStatpadDate(result.date, true)} — not today
+          </div>
+        )}
         <div style={{
           background: '#141414', border: `1px solid ${color}40`,
           borderRadius: 14, padding: '20px 24px', width: '100%', textAlign: 'center', marginBottom: 24,
