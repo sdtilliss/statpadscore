@@ -56,6 +56,13 @@ export async function getScoresByDate(leagueId: string, date: string): Promise<S
   return (await kv.get<Score[]>(`scores:${leagueId}:${date}`)) || [];
 }
 
+// Overwrite a single day's scores in place. Used by admin backfills that fix
+// fields on existing scores (e.g. re-parsing a bad sport) without going through
+// saveScore's per-(player,sport) dedup.
+export async function replaceScoresForDate(leagueId: string, date: string, scores: Score[]): Promise<void> {
+  await kv.set(`scores:${leagueId}:${date}`, scores);
+}
+
 export async function getAllDates(leagueId: string): Promise<string[]> {
   return (await kv.get<string[]>(`dates:${leagueId}`)) || [];
 }

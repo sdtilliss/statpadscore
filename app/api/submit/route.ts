@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { put } from '@vercel/blob';
 import { saveScore } from '@/lib/kv';
 import { getStatpadDate, resolveStatpadDate } from '@/lib/date';
+import { normalizeSport } from '@/lib/sports';
 import { checkLimit, getIp, submitLimiter } from '@/lib/ratelimit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
               text: `Extract data from this Statpad game screenshot. There are two dropdowns at the top-right: a DATE dropdown on the left and a SPORT dropdown on the right. Return ONLY a JSON object with these fields:
 {
   "date": the text in the DATE dropdown (the left one at the top-right). It is either the word "Today" or a short month/day date like "7/18". Return it exactly as shown,
-  "sport": the sport shown in the SPORT dropdown (the right one at the top-right, e.g. "MLB", "NFL", "NBA", "NHL"),
+  "sport": the sport for this game as one of exactly these four codes: "MLB", "NFL", "NBA", or "NHL". First read it from the SPORT dropdown (the right one at the top-right). If that dropdown is cropped off or not visible, INFER the sport from the team logos, athletes, and stat category shown (baseball players or batting/pitching stats like HR, SO, WAR, ERA = MLB; basketball = NBA; football = NFL; hockey = NHL). Always return one of the four codes — never "Unknown", "Not visible", or any other value,
   "category": the stat category shown top-left (e.g. "WAR", "FPTS", "3PM", "HR"),
   "totalScore": the main score value — look for a label like "TOTAL SCORE", "AVERAGE SCORE", or similar, and if no clear label use the large prominent number in the center of the screen. Preserve exactly as shown including decimals (e.g. 0.900 not 900, 21.6 not 216),
   "totalGuesses": the number labeled "TOTAL GUESSES" (as a number),
@@ -92,11 +93,23 @@ Return only the JSON, no markdown or explanation.`,
     // backfilled score files under its real day. Anything unrecognized or out of
     // range falls back to the current Statpad day.
     const date = resolveStatpadDate(parsed.date) ?? getStatpadDate();
+
+    // Never save a garbage sport. If the dropdown was cropped and Claude
+    // couldn't infer a real sport from the tiles, ask for a fuller screenshot
+    // rather than filing the score under "Unknown".
+    const sport = normalizeSport(parsed.sport);
+    if (!sport) {
+      return NextResponse.json(
+        { error: "Couldn't read the sport from your screenshot. Make sure the sport selector at the top of the screen is visible, then try again." },
+        { status: 422 },
+      );
+    }
+
     const score = {
       id: crypto.randomUUID(),
       leagueId,
       playerName,
-      sport: parsed.sport,
+      sport,
       category: parsed.category,
       totalScore: Number(parsed.totalScore),
       totalGuesses: Number(parsed.totalGuesses),
