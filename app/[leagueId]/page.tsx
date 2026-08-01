@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import type { Score, PlayerStats, League, TripleCrown } from '@/lib/types';
+import type { Score, League, TripleCrown } from '@/lib/types';
 import { computePlayerStats } from '@/lib/stats';
 
 const SPORT_COLORS: Record<string, string> = {
@@ -219,22 +219,82 @@ function TodayTab({ scores, leagueId, admin, onDelete }: { scores: Score[]; leag
   );
 }
 
-function StatsTab({ stats }: { stats: PlayerStats[] }) {
-  const allSports = [...new Set(stats.flatMap((p) => Object.keys(p.sportBreakdown)))].sort();
-  const [activeSport, setActiveSport] = useState('');
-  const sport = activeSport && allSports.includes(activeSport) ? activeSport : allSports[0];
+function monthLabel(ym: string) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
 
-  if (stats.length === 0 || allSports.length === 0) {
-    return <div style={{ textAlign: 'center', color: '#444', padding: '56px 0', fontSize: 14 }}>No data yet.</div>;
+function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: string }) {
+  // Season = a calendar month sliced from the same scores we already have.
+  // "This Month" resets the percentile leaderboard each month; "All-Time" is the
+  // full history. Nothing is stored server-side — it's all a filter on `scores`.
+  const [range, setRange] = useState<'month' | 'alltime'>('month');
+  const [month, setMonth] = useState(currentMonth);
+  const [activeSport, setActiveSport] = useState('');
+
+  // Months that actually have scores, ascending. Bounds the month stepper.
+  const months = useMemo(() => [...new Set(scores.map((s) => s.date.slice(0, 7)))].sort(), [scores]);
+  const earliestMonth = months[0] ?? currentMonth;
+  const canPrev = month > earliestMonth;
+  const canNext = month < currentMonth;
+  function stepMonth(delta: number) {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    setMonth(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
   }
 
+  const filtered = useMemo(
+    () => (range === 'alltime' ? scores : scores.filter((s) => s.date.startsWith(month))),
+    [scores, range, month],
+  );
+  const stats = useMemo(() => computePlayerStats(filtered), [filtered]);
+
+  const allSports = [...new Set(stats.flatMap((p) => Object.keys(p.sportBreakdown)))].sort();
+  const sport = activeSport && allSports.includes(activeSport) ? activeSport : allSports[0];
+
   const sportRanking = stats
-    .filter((p) => p.sportBreakdown[sport])
+    .filter((p) => sport && p.sportBreakdown[sport])
     .map((p) => ({ ...p, sd: p.sportBreakdown[sport] }))
     .sort((a, b) => b.sd.avgPercentile - a.sd.avgPercentile);
 
   return (
     <div>
+      {/* Window toggle: This Month vs All-Time */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {(['month', 'alltime'] as const).map((w) => (
+          <button key={w} onClick={() => setRange(w)} style={{
+            flex: 1, background: range === w ? '#1db954' : '#1a1a1a',
+            color: range === w ? '#fff' : '#888',
+            border: `1px solid ${range === w ? '#1db954' : '#2a2a2a'}`,
+            borderRadius: 20, padding: '8px 0', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', letterSpacing: 0.3, transition: 'all 0.15s',
+          }}>{w === 'month' ? 'This Month' : 'All-Time'}</button>
+        ))}
+      </div>
+
+      {/* Month stepper (only in month view) */}
+      {range === 'month' && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <button onClick={() => canPrev && stepMonth(-1)} disabled={!canPrev} style={{
+            background: 'none', border: 'none', color: canPrev ? '#666' : '#2a2a2a',
+            fontSize: 20, cursor: canPrev ? 'pointer' : 'default', padding: '4px 10px',
+          }}>‹</button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: month === currentMonth ? '#1db954' : '#ccc' }}>
+            {month === currentMonth ? `${monthLabel(month)} · This Month` : monthLabel(month)}
+          </span>
+          <button onClick={() => canNext && stepMonth(1)} disabled={!canNext} style={{
+            background: 'none', border: 'none', color: canNext ? '#666' : '#2a2a2a',
+            fontSize: 20, cursor: canNext ? 'pointer' : 'default', padding: '4px 10px',
+          }}>›</button>
+        </div>
+      )}
+
+      {allSports.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#444', padding: '48px 0', fontSize: 14 }}>
+          {range === 'month' ? `No games in ${monthLabel(month)}.` : 'No data yet.'}
+        </div>
+      ) : (
+      <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
         {allSports.map((s) => (
           <button key={s} onClick={() => setActiveSport(s)} style={{
@@ -274,6 +334,8 @@ function StatsTab({ stats }: { stats: PlayerStats[] }) {
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -356,7 +418,7 @@ export default function LeaguePage() {
   const [tab, setTab] = useState<'today' | 'stats' | 'crowns'>('today');
   const [league, setLeague] = useState<League | null>(null);
   const [todayScores, setTodayScores] = useState<Score[]>([]);
-  const [allTimeStats, setAllTimeStats] = useState<PlayerStats[]>([]);
+  const [allScores, setAllScores] = useState<Score[]>([]);
   const [tripleCrowns, setTripleCrowns] = useState<TripleCrown[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -415,7 +477,7 @@ export default function LeaguePage() {
       setNavDates(all);
       setViewDate(todayStr);
       setTodayScores(await scoresRes.json());
-      setAllTimeStats(computePlayerStats(await allRes.json()));
+      setAllScores(await allRes.json());
       setTripleCrowns(await crownsRes.json());
     } finally {
       setLoading(false);
@@ -502,7 +564,7 @@ export default function LeaguePage() {
               fontSize: 13, padding: '10px 18px',
               borderBottom: tab === t ? '2px solid #fff' : '2px solid transparent',
             }}>
-              {t === 'today' ? "Today's Scores" : t === 'stats' ? 'All-Time Stats' : '👑 Crowns'}
+              {t === 'today' ? "Today's Scores" : t === 'stats' ? 'Stats' : '👑 Crowns'}
             </button>
           ))}
         </div>
@@ -559,7 +621,7 @@ export default function LeaguePage() {
             <TodayTab scores={todayScores} leagueId={leagueId} admin={admin} onDelete={(s) => setScoreToDelete(s)} />
           </>
         ) : tab === 'stats' ? (
-          <StatsTab stats={allTimeStats} />
+          <StatsTab scores={allScores} currentMonth={clientToday().slice(0, 7)} />
         ) : (
           <CrownsTab crowns={tripleCrowns} onViewDate={viewCrownDate} />
         )}
