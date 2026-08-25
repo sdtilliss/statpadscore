@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import type { Score, League, TripleCrown } from '@/lib/types';
 import { computePlayerStats } from '@/lib/stats';
@@ -224,11 +224,167 @@ function monthLabel(ym: string) {
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
+const STAT_TILE: CSSProperties = {
+  background: '#141414', border: '1px solid #222', borderRadius: 9,
+  padding: '15px 7px 10px', textAlign: 'center', position: 'relative',
+};
+
+function ordinal(n: number) {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+const RANK_COLORS: Record<number, string> = { 1: '#f5c518', 2: '#b8bdc7', 3: '#cd8032' };
+
+function StatTile({ label, value, color, sub, rank, tooltip }: { label: string; value: string | number; color?: string; sub?: string; rank?: number; tooltip?: ReactNode }) {
+  // Hover on desktop, tap-to-toggle on touch (the app is phone-first).
+  const [tipOpen, setTipOpen] = useState(false);
+  return (
+    <div
+      style={{ ...STAT_TILE, cursor: tooltip ? 'pointer' : undefined }}
+      onMouseEnter={tooltip ? () => setTipOpen(true) : undefined}
+      onMouseLeave={tooltip ? () => setTipOpen(false) : undefined}
+      onClick={tooltip ? () => setTipOpen((o) => !o) : undefined}
+    >
+      {tooltip && tipOpen && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)',
+          background: '#1c1c1c', border: '1px solid #333', borderRadius: 8, padding: '8px 11px',
+          zIndex: 20, whiteSpace: 'nowrap', textAlign: 'left', boxShadow: '0 6px 20px rgba(0,0,0,0.55)',
+        }}>{tooltip}</div>
+      )}
+      {rank !== undefined && (
+        <span style={{
+          position: 'absolute', top: 4, right: 6, fontSize: 11, fontWeight: 800,
+          color: RANK_COLORS[rank] || '#777', letterSpacing: 0.3,
+        }}>{ordinal(rank)}</span>
+      )}
+      <div style={{ fontWeight: 800, fontSize: 17, color: color || '#fff' }}>
+        {value}
+        {sub && <span style={{ fontSize: 10, fontWeight: 600, color: '#666', marginLeft: 3 }}>{sub}</span>}
+      </div>
+      <div style={{ fontSize: 9.5, color: '#555', letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: 700, marginTop: 3 }}>{label}</div>
+    </div>
+  );
+}
+
+function AllStatsView({ stats }: { stats: ReturnType<typeof computePlayerStats> }) {
+  // Full-history stat sheet: everything we track, plus wins + placement.
+  // Ranked by wins, then avg placement (lower is better), then avg percentile.
+  const ranked = [...stats].sort(
+    (a, b) => b.wins - a.wins || a.avgPlacement - b.avgPlacement || b.avgPercentile - a.avgPercentile
+  );
+  // League rank for one stat: 1 + players strictly better. Ties share a rank.
+  type P = (typeof ranked)[number];
+  const leagueRank = (p: P, get: (x: P) => number, lowerIsBetter = false) =>
+    1 + ranked.filter((q) => (lowerIsBetter ? get(q) < get(p) : get(q) > get(p))).length;
+  // Per-sport rank among players who played that sport, for any breakdown stat.
+  const sportRank = (p: P, sport: string, get: (sd: P['sportBreakdown'][string]) => number, lowerIsBetter = false) => {
+    const field = ranked.filter((q) => q.sportBreakdown[sport]);
+    const mine = get(p.sportBreakdown[sport]);
+    return {
+      rank: 1 + field.filter((q) => (lowerIsBetter ? get(q.sportBreakdown[sport]) < mine : get(q.sportBreakdown[sport]) > mine)).length,
+      of: field.length,
+    };
+  };
+  // Shared tooltip body: one row per sport with rank + a trailing detail value.
+  const sportRankTooltip = (p: P, title: string, get: (sd: P['sportBreakdown'][string]) => number, detail: (sd: P['sportBreakdown'][string]) => string, lowerIsBetter = false) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ fontSize: 9, color: '#666', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{title}</div>
+      {Object.keys(p.sportBreakdown).sort().map((s) => {
+        const r = sportRank(p, s, get, lowerIsBetter);
+        return (
+          <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
+            <span style={{ fontWeight: 800, color: sportColor(s), minWidth: 30 }}>{s}</span>
+            <span style={{ fontWeight: 800, color: RANK_COLORS[r.rank] || '#ccc' }}>{ordinal(r.rank)}</span>
+            <span style={{ color: '#666' }}>of {r.of}</span>
+            <span style={{ color: '#555', marginLeft: 'auto', paddingLeft: 10 }}>{detail(p.sportBreakdown[s])}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+  const SPORT_COLS = '52px repeat(5, 1fr)';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {ranked.map((p, i) => {
+        const medal = ['🥇', '🥈', '🥉'][i];
+        const sports = Object.keys(p.sportBreakdown).sort();
+        return (
+          <div key={p.playerName} style={{
+            background: '#111', border: '1px solid #222', borderRadius: 12, padding: '14px 14px 12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 17, minWidth: 22, textAlign: 'center' }}>
+                {medal ?? <span style={{ color: '#555', fontSize: 13 }}>{i + 1}</span>}
+              </span>
+              <span style={{ fontWeight: 800, fontSize: 15, color: '#fff', flex: 1 }}>{p.playerName}</span>
+              {p.currentStreak > 1 && <span style={{ color: '#f5a623', fontSize: 12, fontWeight: 700 }}>🔥 {p.currentStreak}d</span>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 6 }}>
+              <StatTile
+                label="Wins"
+                value={`🏆 ${p.wins}`}
+                color="#f5c518"
+                rank={leagueRank(p, (x) => x.wins)}
+                tooltip={sportRankTooltip(p, 'Wins rank by sport', (sd) => sd.wins, (sd) => `${sd.wins} win${sd.wins !== 1 ? 's' : ''}`)}
+              />
+              <StatTile
+                label="Avg Place"
+                value={p.avgPlacement}
+                color="#1db954"
+                rank={leagueRank(p, (x) => x.avgPlacement, true)}
+                tooltip={sportRankTooltip(p, 'Place rank by sport', (sd) => sd.avgPlacement, (sd) => `${sd.avgPlacement} avg`, true)}
+              />
+              <StatTile label="Avg %ile" value={`${p.avgPercentile}%`} rank={leagueRank(p, (x) => x.avgPercentile)} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
+              <StatTile label="Games" value={p.gamesPlayed} rank={leagueRank(p, (x) => x.gamesPlayed)} />
+              <StatTile label="Days" value={p.daysPlayed} rank={leagueRank(p, (x) => x.daysPlayed)} />
+              <StatTile label="Best %ile" value={`${p.bestPercentile}%`} rank={leagueRank(p, (x) => x.bestPercentile)} />
+              <StatTile label="Purples" value={`💜 ${p.purpleHits}`} color="#a855f7" rank={leagueRank(p, (x) => x.purpleHits)} />
+            </div>
+
+            {/* Per-sport breakdown: every stat we keep per category */}
+            <div style={{ display: 'grid', gridTemplateColumns: SPORT_COLS, gap: 4, padding: '0 2px 4px' }}>
+              {['', 'W', 'Plc', 'Avg%', 'Best%', '💜'].map((h, k) => (
+                <div key={k} style={{ fontSize: 9, color: '#444', fontWeight: 700, textAlign: k === 0 ? 'left' : 'center', letterSpacing: 0.5 }}>{h}</div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {sports.map((s) => {
+                const sd = p.sportBreakdown[s];
+                return (
+                  <div key={s} style={{
+                    display: 'grid', gridTemplateColumns: SPORT_COLS, gap: 4, alignItems: 'center',
+                    background: sportBg(s), border: `1px solid ${sportColor(s)}25`, borderRadius: 7, padding: '6px 2px 6px 6px',
+                  }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: sportColor(s), letterSpacing: 0.5 }}>
+                      {s} <span style={{ color: '#555', fontWeight: 600 }}>×{sd.count}</span>
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: sd.wins > 0 ? '#f5c518' : '#555', textAlign: 'center' }}>{sd.wins}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', textAlign: 'center' }}>{sd.avgPlacement}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', textAlign: 'center' }}>{sd.avgPercentile}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', textAlign: 'center' }}>{sd.bestPercentile}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: sd.purpleHits > 0 ? '#a855f7' : '#444', textAlign: 'center' }}>{sd.purpleHits}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: string }) {
   // Season = a calendar month sliced from the same scores we already have.
   // "This Month" resets the percentile leaderboard each month; "All-Time" is the
-  // full history. Nothing is stored server-side — it's all a filter on `scores`.
-  const [range, setRange] = useState<'month' | 'alltime'>('month');
+  // full history; "All Stats" is the full-history stat sheet (wins, placement,
+  // and everything else we track). Nothing is stored server-side — it's all a
+  // filter on `scores`.
+  const [range, setRange] = useState<'month' | 'alltime' | 'allstats'>('month');
   const [month, setMonth] = useState(currentMonth);
   const [activeSport, setActiveSport] = useState('');
 
@@ -244,7 +400,7 @@ function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: str
   }
 
   const filtered = useMemo(
-    () => (range === 'alltime' ? scores : scores.filter((s) => s.date.startsWith(month))),
+    () => (range === 'month' ? scores.filter((s) => s.date.startsWith(month)) : scores),
     [scores, range, month],
   );
   const stats = useMemo(() => computePlayerStats(filtered), [filtered]);
@@ -259,16 +415,16 @@ function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: str
 
   return (
     <div>
-      {/* Window toggle: This Month vs All-Time */}
+      {/* Window toggle: This Month vs All-Time vs All Stats */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        {(['month', 'alltime'] as const).map((w) => (
+        {(['month', 'alltime', 'allstats'] as const).map((w) => (
           <button key={w} onClick={() => setRange(w)} style={{
             flex: 1, background: range === w ? '#1db954' : '#1a1a1a',
             color: range === w ? '#fff' : '#888',
             border: `1px solid ${range === w ? '#1db954' : '#2a2a2a'}`,
             borderRadius: 20, padding: '8px 0', fontSize: 12, fontWeight: 700,
             cursor: 'pointer', letterSpacing: 0.3, transition: 'all 0.15s',
-          }}>{w === 'month' ? 'This Month' : 'All-Time'}</button>
+          }}>{w === 'month' ? 'This Month' : w === 'alltime' ? 'All-Time' : 'All Stats'}</button>
         ))}
       </div>
 
@@ -293,6 +449,8 @@ function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: str
         <div style={{ textAlign: 'center', color: '#444', padding: '48px 0', fontSize: 14 }}>
           {range === 'month' ? `No games in ${monthLabel(month)}.` : 'No data yet.'}
         </div>
+      ) : range === 'allstats' ? (
+        <AllStatsView stats={stats} />
       ) : (
       <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
