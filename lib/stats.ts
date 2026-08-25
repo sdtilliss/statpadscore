@@ -12,8 +12,9 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
   // Placement per score: rank within its (day, sport) group, ordered by
   // percentile then raw score — the same ordering as the Today tab and
   // Triple Crowns. Exact ties (same percentile AND score) share a rank, so
-  // both tied leaders count a win.
-  const placementById = new Map<string, number>();
+  // both tied leaders count a win. Keyed by object identity, not score.id,
+  // so legacy records with missing/duplicate ids can't collide.
+  const placementOf = new Map<Score, number>();
   const byDaySport: Record<string, Score[]> = {};
   for (const s of scores) {
     const key = `${s.date}|${s.sport}`;
@@ -30,7 +31,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
       if (!prev || prev.percentile !== sorted[i].percentile || prev.totalScore !== sorted[i].totalScore) {
         rank = i + 1;
       }
-      placementById.set(sorted[i].id, rank);
+      placementOf.set(sorted[i], rank);
     }
   }
 
@@ -75,7 +76,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
           sportBreakdown[s.sport].bestPercentile = s.percentile;
         }
         sportBreakdown[s.sport].purpleHits += s.purpleTiles || 0;
-        const placement = placementById.get(s.id) ?? 1;
+        const placement = placementOf.get(s) ?? 1;
         if (placement === 1) sportBreakdown[s.sport].wins++;
         sportBreakdown[s.sport].avgPlacement += placement;
       }
@@ -86,7 +87,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
         sportBreakdown[sport].avgPlacement = Math.round((sportBreakdown[sport].avgPlacement / c) * 10) / 10;
       }
 
-      const placements = playerScores.map((s) => placementById.get(s.id) ?? 1);
+      const placements = playerScores.map((s) => placementOf.get(s) ?? 1);
       const wins = placements.filter((p) => p === 1).length;
       const avgPlacement =
         Math.round((placements.reduce((a, b) => a + b, 0) / placements.length) * 10) / 10;
