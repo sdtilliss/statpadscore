@@ -109,3 +109,57 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
     })
     .sort((a, b) => b.avgPercentile - a.avgPercentile);
 }
+
+export interface MonthlyTitle {
+  month: string; // YYYY-MM
+  sport: string;
+  playerNames: string[]; // ties (equal avg percentile) share the title
+}
+
+// A "month title" goes to whoever has the best avg percentile in a sport for
+// a given calendar month — the same ranking the Stats tab's "This Month"
+// per-sport leaderboard uses. Rounded to 1 decimal (as displayed) before
+// comparing, so a tie on screen is also a tie here.
+export function computeMonthlyTitles(scores: Score[]): MonthlyTitle[] {
+  const byMonthSport: Record<string, Score[]> = {};
+  for (const s of scores) {
+    const key = `${s.date.slice(0, 7)}|${s.sport}`;
+    if (!byMonthSport[key]) byMonthSport[key] = [];
+    byMonthSport[key].push(s);
+  }
+
+  const titles: MonthlyTitle[] = [];
+  for (const [key, group] of Object.entries(byMonthSport)) {
+    const [month, sport] = key.split('|');
+    const byPlayer: Record<string, { name: string; total: number; count: number }> = {};
+    for (const s of group) {
+      const k = s.playerName.toLowerCase();
+      if (!byPlayer[k]) byPlayer[k] = { name: s.playerName, total: 0, count: 0 };
+      byPlayer[k].total += s.percentile;
+      byPlayer[k].count++;
+    }
+    const avgs = Object.values(byPlayer).map((p) => ({
+      name: p.name,
+      avg: Math.round((p.total / p.count) * 10) / 10,
+    }));
+    const best = Math.max(...avgs.map((a) => a.avg));
+    titles.push({ month, sport, playerNames: avgs.filter((a) => a.avg === best).map((a) => a.name) });
+  }
+  return titles;
+}
+
+// Per-player total + per-sport count of month titles won, keyed by lowercase name.
+export function aggregateMonthlyTitles(
+  titles: MonthlyTitle[],
+): Record<string, { total: number; bySport: Record<string, number> }> {
+  const counts: Record<string, { total: number; bySport: Record<string, number> }> = {};
+  for (const t of titles) {
+    for (const name of t.playerNames) {
+      const key = name.toLowerCase();
+      if (!counts[key]) counts[key] = { total: 0, bySport: {} };
+      counts[key].total++;
+      counts[key].bySport[t.sport] = (counts[key].bySport[t.sport] || 0) + 1;
+    }
+  }
+  return counts;
+}

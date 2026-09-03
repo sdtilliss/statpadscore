@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import type { Score, League, TripleCrown } from '@/lib/types';
-import { computePlayerStats } from '@/lib/stats';
+import { computePlayerStats, computeMonthlyTitles, aggregateMonthlyTitles } from '@/lib/stats';
 
 const SPORT_COLORS: Record<string, string> = {
   MLB: '#C4952A', NFL: '#3B6BB5', NBA: '#C84B31', NHL: '#4A90D9',
@@ -267,7 +267,12 @@ function StatTile({ label, value, color, sub, rank, tooltip }: { label: string; 
   );
 }
 
-function AllStatsView({ stats }: { stats: ReturnType<typeof computePlayerStats> }) {
+function AllStatsView({
+  stats, monthlyTitles,
+}: {
+  stats: ReturnType<typeof computePlayerStats>;
+  monthlyTitles: Record<string, { total: number; bySport: Record<string, number> }>;
+}) {
   // Full-history stat sheet: everything we track, plus wins + placement.
   // Ranked by wins, then avg placement (lower is better), then avg percentile.
   const ranked = [...stats].sort(
@@ -303,12 +308,33 @@ function AllStatsView({ stats }: { stats: ReturnType<typeof computePlayerStats> 
       })}
     </div>
   );
-  const SPORT_COLS = '52px repeat(5, 1fr)';
+  const SPORT_COLS = '52px repeat(6, 1fr)';
+  // Month titles: whoever led a sport's avg percentile for a calendar month.
+  const titlesOf = (pl: P) => monthlyTitles[pl.playerName.toLowerCase()]?.total ?? 0;
+  const titlesOfSport = (pl: P, sport: string) => monthlyTitles[pl.playerName.toLowerCase()]?.bySport[sport] ?? 0;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {ranked.map((p, i) => {
         const medal = ['🥇', '🥈', '🥉'][i];
         const sports = Object.keys(p.sportBreakdown).sort();
+        const titlesTooltip = (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ fontSize: 9, color: '#666', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Titles rank by sport</div>
+            {sports.map((s) => {
+              const mine = titlesOfSport(p, s);
+              const field = ranked.filter((q) => q.sportBreakdown[s]);
+              const r = 1 + field.filter((q) => titlesOfSport(q, s) > mine).length;
+              return (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
+                  <span style={{ fontWeight: 800, color: sportColor(s), minWidth: 30 }}>{s}</span>
+                  <span style={{ fontWeight: 800, color: RANK_COLORS[r] || '#ccc' }}>{ordinal(r)}</span>
+                  <span style={{ color: '#666' }}>of {field.length}</span>
+                  <span style={{ color: '#555', marginLeft: 'auto', paddingLeft: 10 }}>{mine} title{mine !== 1 ? 's' : ''}</span>
+                </div>
+              );
+            })}
+          </div>
+        );
         return (
           <div key={p.playerName} style={{
             background: '#111', border: '1px solid #222', borderRadius: 12, padding: '14px 14px 12px',
@@ -321,13 +347,20 @@ function AllStatsView({ stats }: { stats: ReturnType<typeof computePlayerStats> 
               {p.currentStreak > 1 && <span style={{ color: '#f5a623', fontSize: 12, fontWeight: 700 }}>🔥 {p.currentStreak}d</span>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 6 }}>
               <StatTile
                 label="Wins"
                 value={`🏆 ${p.wins}`}
                 color="#f5c518"
                 rank={leagueRank(p, (x) => x.wins)}
                 tooltip={sportRankTooltip(p, 'Wins rank by sport', (sd) => sd.wins, (sd) => `${sd.wins} win${sd.wins !== 1 ? 's' : ''}`)}
+              />
+              <StatTile
+                label="Titles"
+                value={`🎖️ ${titlesOf(p)}`}
+                color="#e0a72c"
+                rank={leagueRank(p, titlesOf)}
+                tooltip={titlesTooltip}
               />
               <StatTile
                 label="Avg Place"
@@ -347,7 +380,7 @@ function AllStatsView({ stats }: { stats: ReturnType<typeof computePlayerStats> 
 
             {/* Per-sport breakdown: every stat we keep per category */}
             <div style={{ display: 'grid', gridTemplateColumns: SPORT_COLS, gap: 4, padding: '0 2px 4px' }}>
-              {['', 'W', 'Plc', 'Avg%', 'Best%', '💜'].map((h, k) => (
+              {['', 'W', '🎖️', 'Plc', 'Avg%', 'Best%', '💜'].map((h, k) => (
                 <div key={k} style={{ fontSize: 9, color: '#444', fontWeight: 700, textAlign: k === 0 ? 'left' : 'center', letterSpacing: 0.5 }}>{h}</div>
               ))}
             </div>
@@ -363,6 +396,7 @@ function AllStatsView({ stats }: { stats: ReturnType<typeof computePlayerStats> 
                       {s} <span style={{ color: '#555', fontWeight: 600 }}>×{sd.count}</span>
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: sd.wins > 0 ? '#f5c518' : '#555', textAlign: 'center' }}>{sd.wins}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: titlesOfSport(p, s) > 0 ? '#e0a72c' : '#555', textAlign: 'center' }}>{titlesOfSport(p, s)}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', textAlign: 'center' }}>{sd.avgPlacement}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', textAlign: 'center' }}>{sd.avgPercentile}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', textAlign: 'center' }}>{sd.bestPercentile}</span>
@@ -404,6 +438,9 @@ function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: str
     [scores, range, month],
   );
   const stats = useMemo(() => computePlayerStats(filtered), [filtered]);
+  // Month titles are always all-time — "won March" doesn't depend on the
+  // window toggle, so this is computed off the full `scores`, not `filtered`.
+  const monthlyTitles = useMemo(() => aggregateMonthlyTitles(computeMonthlyTitles(scores)), [scores]);
 
   const allSports = [...new Set(stats.flatMap((p) => Object.keys(p.sportBreakdown)))].sort();
   const sport = activeSport && allSports.includes(activeSport) ? activeSport : allSports[0];
@@ -450,7 +487,7 @@ function StatsTab({ scores, currentMonth }: { scores: Score[]; currentMonth: str
           {range === 'month' ? `No games in ${monthLabel(month)}.` : 'No data yet.'}
         </div>
       ) : range === 'allstats' ? (
-        <AllStatsView stats={stats} />
+        <AllStatsView stats={stats} monthlyTitles={monthlyTitles} />
       ) : (
       <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
