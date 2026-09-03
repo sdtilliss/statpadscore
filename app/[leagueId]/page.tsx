@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, type CSSProperties, type Rea
 import { useParams } from 'next/navigation';
 import type { Score, League, TripleCrown } from '@/lib/types';
 import { computePlayerStats, computeMonthlyTitles, aggregateMonthlyTitles } from '@/lib/stats';
+import { compareForRanking } from '@/lib/ranking';
 
 const SPORT_COLORS: Record<string, string> = {
   MLB: '#C4952A', NFL: '#3B6BB5', NBA: '#C84B31', NHL: '#4A90D9',
@@ -202,7 +203,7 @@ function TodayTab({ scores, leagueId, admin, onDelete }: { scores: Score[]; leag
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       {sports.map((sport) => {
-        const sportScores = scores.filter((s) => s.sport === sport).sort((a, b) => b.percentile - a.percentile);
+        const sportScores = scores.filter((s) => s.sport === sport).sort(compareForRanking);
         return (
           <div key={sport}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>

@@ -142,6 +142,14 @@ export async function addTripleCrown(crown: TripleCrown): Promise<boolean> {
   return true;
 }
 
+// Wholesale overwrite, unlike addTripleCrown which only ever appends. Used by
+// the reconcile-crowns admin backfill to correct dates that already have a
+// (possibly wrong, pre-fix) winner on record — addTripleCrown's dedupe-by-date
+// means it can never fix those, only fill in dates with no crown at all.
+export async function replaceTripleCrowns(leagueId: string, crowns: TripleCrown[]): Promise<void> {
+  await kv.set(`triplecrowns:${leagueId}`, crowns);
+}
+
 // --- Messages ---
 
 export async function saveMessage(message: Message): Promise<void> {

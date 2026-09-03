@@ -1,5 +1,6 @@
 import type { Score, PlayerStats } from './types';
 import { getStatpadDate } from './date';
+import { compareForRanking } from './ranking';
 
 export function computePlayerStats(scores: Score[]): PlayerStats[] {
   const byPlayer: Record<string, Score[]> = {};
@@ -9,11 +10,11 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
     byPlayer[key].push(s);
   }
 
-  // Placement per score: rank within its (day, sport) group, ordered by
-  // percentile then raw score — the same ordering as the Today tab and
-  // Triple Crowns. Exact ties (same percentile AND score) share a rank, so
-  // both tied leaders count a win. Keyed by object identity, not score.id,
-  // so legacy records with missing/duplicate ids can't collide.
+  // Placement per score: rank within its (day, sport) group, using the same
+  // ordering as the Today tab and Triple Crowns (see compareForRanking).
+  // Exact ties share a rank, so both tied leaders count a win. Keyed by
+  // object identity, not score.id, so legacy records with missing/duplicate
+  // ids can't collide.
   const placementOf = new Map<Score, number>();
   const byDaySport: Record<string, Score[]> = {};
   for (const s of scores) {
@@ -22,13 +23,11 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
     byDaySport[key].push(s);
   }
   for (const group of Object.values(byDaySport)) {
-    const sorted = group
-      .slice()
-      .sort((a, b) => b.percentile - a.percentile || b.totalScore - a.totalScore);
+    const sorted = group.slice().sort(compareForRanking);
     let rank = 0;
     for (let i = 0; i < sorted.length; i++) {
       const prev = sorted[i - 1];
-      if (!prev || prev.percentile !== sorted[i].percentile || prev.totalScore !== sorted[i].totalScore) {
+      if (!prev || compareForRanking(prev, sorted[i]) !== 0) {
         rank = i + 1;
       }
       placementOf.set(sorted[i], rank);

@@ -1,4 +1,5 @@
 import type { Score } from './types';
+import { compareForRanking } from './ranking';
 
 // A "triple crown" = one player holds the top spot (by percentile, matching the
 // Today tab) in every tracked sport on a single Statpad day — but only once the
@@ -12,8 +13,7 @@ export const TRIPLE_CROWN_MIN_PLAYERS = 4;
 /**
  * Evaluate a single day's scores. Returns the winning player's name if the day
  * yielded a triple crown, otherwise null. Ties for the top of a sport are not
- * treated specially — the top score by percentile (then raw score, for
- * determinism) wins that sport.
+ * treated specially — see compareForRanking for how the top score is picked.
  */
 export function evaluateTripleCrown(scores: Score[]): string | null {
   // Group by player (case-insensitive), tracking which sports each covered.
@@ -39,9 +39,7 @@ export function evaluateTripleCrown(scores: Score[]): string | null {
   for (const sport of TRIPLE_CROWN_SPORTS) {
     const sportScores = scores.filter((s) => s.sport === sport);
     if (sportScores.length === 0) return null; // sport not contested this day
-    const top = sportScores
-      .slice()
-      .sort((a, b) => b.percentile - a.percentile || b.totalScore - a.totalScore)[0];
+    const top = sportScores.slice().sort(compareForRanking)[0];
     const topKey = top.playerName.toLowerCase();
     if (champion === null) champion = topKey;
     else if (champion !== topKey) return null; // different leaders — no sweep
