@@ -17,6 +17,7 @@ export interface Score {
   screenshotUrl: string;
   submittedAt: string;
   purpleTiles?: number; // count of individual athlete tiles at 100th percentile
+  magicBean?: boolean; // perfect grid (all 5 tiles purple) — percentile stored as 100
 }
 
 export interface Message {
@@ -44,10 +45,11 @@ export interface PlayerStats {
   bestPercentile: number;
   currentStreak: number;
   purpleHits: number;
+  magicBeans: number; // perfect grids (see lib/magicBean.ts)
   // A "win" = holding rank 1 in a (day, sport) group, ranked by percentile
   // (tiebreak: raw score) — the same ordering the Today tab and Triple Crowns use.
   wins: number;
   // Average rank across every (day, sport) the player submitted (1 = won it).
   avgPlacement: number;
-  sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; bestPercentile: number; purpleHits: number; wins: number; avgPlacement: number }>;
+  sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; bestPercentile: number; purpleHits: number; magicBeans: number; wins: number; avgPlacement: number }>;
 }

@@ -1,6 +1,7 @@
 import type { Score, PlayerStats } from './types';
 import { getStatpadDate } from './date';
 import { compareForRanking } from './ranking';
+import { isMagicBean } from './magicBean';
 
 export function computePlayerStats(scores: Score[]): PlayerStats[] {
   const byPlayer: Record<string, Score[]> = {};
@@ -62,9 +63,9 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
 
       const best = playerScores.reduce((a, b) => (b.totalScore > a.totalScore ? b : a));
 
-      const sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; bestPercentile: number; purpleHits: number; wins: number; avgPlacement: number }> = {};
+      const sportBreakdown: Record<string, { count: number; avg: number; best: number; avgPercentile: number; bestPercentile: number; purpleHits: number; magicBeans: number; wins: number; avgPlacement: number }> = {};
       for (const s of playerScores) {
-        if (!sportBreakdown[s.sport]) sportBreakdown[s.sport] = { count: 0, avg: 0, best: 0, avgPercentile: 0, bestPercentile: 0, purpleHits: 0, wins: 0, avgPlacement: 0 };
+        if (!sportBreakdown[s.sport]) sportBreakdown[s.sport] = { count: 0, avg: 0, best: 0, avgPercentile: 0, bestPercentile: 0, purpleHits: 0, magicBeans: 0, wins: 0, avgPlacement: 0 };
         sportBreakdown[s.sport].count++;
         sportBreakdown[s.sport].avg += s.totalScore;
         sportBreakdown[s.sport].avgPercentile += s.percentile;
@@ -75,6 +76,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
           sportBreakdown[s.sport].bestPercentile = s.percentile;
         }
         sportBreakdown[s.sport].purpleHits += s.purpleTiles || 0;
+        if (isMagicBean(s)) sportBreakdown[s.sport].magicBeans++;
         const placement = placementOf.get(s) ?? 1;
         if (placement === 1) sportBreakdown[s.sport].wins++;
         sportBreakdown[s.sport].avgPlacement += placement;
@@ -101,6 +103,7 @@ export function computePlayerStats(scores: Score[]): PlayerStats[] {
         bestPercentile: Math.max(...playerScores.map((s) => s.percentile)),
         currentStreak: streak,
         purpleHits: playerScores.reduce((a, s) => a + (s.purpleTiles || 0), 0),
+        magicBeans: playerScores.filter(isMagicBean).length,
         wins,
         avgPlacement,
         sportBreakdown,

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import type { Score, League, TripleCrown } from '@/lib/types';
+import { isMagicBean, MAGIC_BEAN_COLOR, MAGIC_BEAN_ICON } from '@/lib/magicBean';
 import { computePlayerStats, computeMonthlyTitles, aggregateMonthlyTitles } from '@/lib/stats';
 import { compareForRanking } from '@/lib/ranking';
 
@@ -143,10 +144,12 @@ function ScreenshotModal({ url, onClose }: { url: string; onClose: () => void })
 function ScoreRow({ score, rank, admin, onDelete }: { score: Score; rank: number; admin: boolean; onDelete: (s: Score) => void }) {
   const [open, setOpen] = useState(false);
   const medal = ['🥇', '🥈', '🥉'][rank - 1];
+  const bean = isMagicBean(score);
   return (
     <>
       <div onClick={() => setOpen(true)} style={{
-        background: sportBg(score.sport), border: `1px solid ${sportColor(score.sport)}35`,
+        background: sportBg(score.sport), border: bean ? `1px solid ${MAGIC_BEAN_COLOR}90` : `1px solid ${sportColor(score.sport)}35`,
+        boxShadow: bean ? `0 0 12px ${MAGIC_BEAN_COLOR}30` : undefined,
         borderRadius: 10, padding: '11px 14px', cursor: 'pointer',
         display: 'flex', alignItems: 'center', gap: 12, transition: 'filter 0.15s',
       }}
@@ -159,16 +162,18 @@ function ScoreRow({ score, rank, admin, onDelete }: { score: Score; rank: number
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {score.playerName}
+            {bean && <span title="Magic Bean — perfect grid" style={{ marginLeft: 6 }}>{MAGIC_BEAN_ICON}</span>}
           </div>
           <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>
             {score.totalGuesses} guesses
+            {bean && <span style={{ color: MAGIC_BEAN_COLOR, fontWeight: 700, marginLeft: 6 }}>Magic Bean</span>}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: 800, fontSize: 20, color: sportColor(score.sport) }}>
             {score.totalScore.toLocaleString()}
           </div>
-          <div style={{ fontSize: 11, color: '#666', marginTop: 1 }}>beat {score.percentile}%</div>
+          <div style={{ fontSize: 11, color: bean ? MAGIC_BEAN_COLOR : '#666', marginTop: 1 }}>beat {score.percentile}%</div>
         </div>
         {admin ? (
           <button
@@ -374,7 +379,13 @@ function AllStatsView({
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
               <StatTile label="Games" value={p.gamesPlayed} rank={leagueRank(p, (x) => x.gamesPlayed)} />
-              <StatTile label="Days" value={p.daysPlayed} rank={leagueRank(p, (x) => x.daysPlayed)} />
+              <StatTile
+                label="Magic Beans"
+                value={`${MAGIC_BEAN_ICON} ${p.magicBeans}`}
+                color={MAGIC_BEAN_COLOR}
+                rank={leagueRank(p, (x) => x.magicBeans)}
+                tooltip={sportRankTooltip(p, 'Magic Beans rank by sport', (sd) => sd.magicBeans, (sd) => `${sd.magicBeans} bean${sd.magicBeans !== 1 ? 's' : ''}`)}
+              />
               <StatTile label="Best %ile" value={`${p.bestPercentile}%`} rank={leagueRank(p, (x) => x.bestPercentile)} />
               <StatTile label="Purples" value={`💜 ${p.purpleHits}`} color="#a855f7" rank={leagueRank(p, (x) => x.purpleHits)} />
             </div>
