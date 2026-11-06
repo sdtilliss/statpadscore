@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import type { Score } from '@/lib/types';
+import { MAGIC_BEAN_COLOR, MAGIC_BEAN_ICON } from '@/lib/magicBean';
 
 // Same 3am-PT boundary the server uses, so "is this today?" agrees with storage.
 function clientStatpadDate(): string {
@@ -159,6 +160,11 @@ export default function LeagueSubmitPage() {
           <div style={{ fontSize: 13, color: '#888', marginTop: 8 }}>
             Beat <strong style={{ color: '#fff' }}>{result.percentile}%</strong> of scores
           </div>
+          {result.magicBean && (
+            <div style={{ fontSize: 14, fontWeight: 800, color: MAGIC_BEAN_COLOR, marginTop: 10 }}>
+              {MAGIC_BEAN_ICON} Magic Bean — perfect grid!
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, width: '100%' }}>
           <a href={`/${leagueId}`} style={{

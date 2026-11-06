@@ -4,6 +4,7 @@ import { put } from '@vercel/blob';
 import { saveScore } from '@/lib/kv';
 import { getStatpadDate, resolveStatpadDate } from '@/lib/date';
 import { normalizeSport } from '@/lib/sports';
+import { isPerfectGrid } from '@/lib/magicBean';
 import { checkLimit, getIp, submitLimiter } from '@/lib/ratelimit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -105,6 +106,11 @@ Return only the JSON, no markdown or explanation.`,
       );
     }
 
+    // Perfect grid (all 5 tiles purple) = Magic Bean. Override Statpad's
+    // global "beat X%" with 100 — a perfect grid can't be beaten.
+    const purpleTiles = Number(parsed.purpleTiles) || 0;
+    const magicBean = isPerfectGrid(purpleTiles);
+
     const score = {
       id: crypto.randomUUID(),
       leagueId,
@@ -113,8 +119,9 @@ Return only the JSON, no markdown or explanation.`,
       category: parsed.category,
       totalScore: Number(parsed.totalScore),
       totalGuesses: Number(parsed.totalGuesses),
-      percentile: Number(parsed.percentile),
-      purpleTiles: Number(parsed.purpleTiles) || 0,
+      percentile: magicBean ? 100 : Number(parsed.percentile),
+      purpleTiles,
+      ...(magicBean && { magicBean: true }),
       date,
       screenshotUrl: blob.url,
       submittedAt: new Date().toISOString(),
